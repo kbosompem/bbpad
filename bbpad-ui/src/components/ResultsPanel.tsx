@@ -1,0 +1,112 @@
+import { cn } from '@/lib/utils'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+import { Copy, Download, Table, FileJson } from 'lucide-react'
+
+interface ResultsPanelProps {
+  result: string
+  isExecuting: boolean
+  className?: string
+}
+
+export function ResultsPanel({ result, isExecuting, className }: ResultsPanelProps) {
+  const hasError = result.startsWith('❌')
+  const isEmpty = !result || result === 'Press F5 or click Execute to run your Clojure script...'
+
+  const handleCopyResult = async () => {
+    try {
+      await navigator.clipboard.writeText(result)
+    } catch (err) {
+      console.error('Failed to copy result:', err)
+    }
+  }
+
+  const handleExportResult = () => {
+    const blob = new Blob([result], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'bbpad-result.txt'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div className={cn("flex flex-col h-full", className)}>
+      {/* Results Header */}
+      <div className="flex items-center justify-between border-b px-4 py-2 bg-muted/30">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-sm">Results</h3>
+          {isExecuting && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+              Executing...
+            </div>
+          )}
+        </div>
+        
+        {!isEmpty && !isExecuting && (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyResult}
+              className="h-7 px-2"
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExportResult}
+              className="h-7 px-2"
+            >
+              <Download className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Results Content */}
+      <div className="flex-1 overflow-hidden">
+        <Tabs defaultValue="formatted" className="h-full flex flex-col">
+          <TabsList className="mx-4 mt-2 w-fit">
+            <TabsTrigger value="formatted" className="text-xs">
+              <Table className="h-3 w-3 mr-1" />
+              Formatted
+            </TabsTrigger>
+            <TabsTrigger value="raw" className="text-xs">
+              <FileJson className="h-3 w-3 mr-1" />
+              Raw
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="formatted" className="flex-1 mt-2 mx-4 mb-4">
+            <div className={cn(
+              "h-full p-4 rounded-md border overflow-auto text-sm font-mono",
+              hasError 
+                ? "bg-red-50 border-red-200 text-red-800 dark:bg-red-950/20 dark:border-red-800 dark:text-red-300"
+                : isEmpty
+                ? "bg-muted/30 text-muted-foreground"
+                : "bg-background"
+            )}>
+              <pre className="whitespace-pre-wrap leading-relaxed">
+                {result || 'Press F5 or click Execute to run your Clojure script...'}
+              </pre>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="raw" className="flex-1 mt-2 mx-4 mb-4">
+            <div className="h-full p-4 rounded-md border bg-background overflow-auto text-sm font-mono">
+              <pre className="whitespace-pre-wrap leading-relaxed text-muted-foreground">
+                {result || 'No output'}
+              </pre>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  )
+}

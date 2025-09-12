@@ -1,0 +1,85 @@
+{:paths ["src"]
+ 
+ ; :pods {org.babashka/postgresql {:version "0.1.0"}
+ ;        org.babashka/hsqldb {:version "0.1.0"}
+ ;        epiccastle/bbssh {:version "0.5.0"}
+ ;        borkdude/clj-kondo {:version "2025.06.05"}}
+ 
+ :deps {org.clojure/clojure {:mvn/version "1.11.1"}
+        
+        ;; Routing library for Babashka
+        org.clojars.askonomm/ruuter {:mvn/version "1.3.4"}
+        
+        ;; JSON handling (Babashka built-in)
+        ; cheshire/cheshire {:mvn/version "5.11.0"}
+        
+        ;; Database connectivity
+        com.github.seancorfield/next.jdbc {:mvn/version "1.3.894"}
+        org.postgresql/postgresql {:mvn/version "42.6.0"}
+        com.mysql/mysql-connector-j {:mvn/version "8.1.0"}
+        org.xerial/sqlite-jdbc {:mvn/version "3.42.0.0"}
+        com.microsoft.sqlserver/mssql-jdbc {:mvn/version "12.2.0.jre8"}
+        org.hsqldb/hsqldb {:mvn/version "2.7.2"}
+        
+        ;; Utilities
+        clj-http/clj-http {:mvn/version "3.12.3"}
+        org.clojure/data.json {:mvn/version "2.4.0"}
+        hiccup/hiccup {:mvn/version "1.0.5"}}
+ 
+ :tasks
+ {:requires ([babashka.fs :as fs]
+             [clojure.string :as str])
+  
+  dev {:doc "Start development server with hot reload"
+       :task (do
+               (println "🚀 Starting BBPad development server...")
+               (shell "bb src/bbpad/main.clj --dev"))}
+  
+  build {:doc "Build ClojureScript and create executable"
+         :task (do
+                 (println "🔨 Building BBPad...")
+                 (when (fs/exists? "package.json")
+                   (shell "npm run build:prod"))
+                 (shell "bb build/create-executable.clj"))}
+  
+  test {:doc "Run all tests"
+        :task (do
+                (println "🧪 Running tests...")
+                (shell "bb test/unit-tests.clj"))}
+  
+  test:unit {:doc "Run unit tests only"
+             :task (shell "bb test/unit-tests.clj")}
+  
+  test:integration {:doc "Run integration tests"
+                    :task (shell "bb test/integration-tests.clj")}
+  
+  test:all {:doc "Run all tests including E2E"
+            :task (do
+                    (run 'test)
+                    (when (fs/exists? "package.json")
+                      (shell "npm run test:e2e")))}
+  
+  clean {:doc "Clean build artifacts"
+         :task (do
+                 (println "🧹 Cleaning build artifacts...")
+                 (fs/delete-tree "target" {:force true})
+                 (fs/delete-tree "resources/public/js" {:force true})
+                 (when (fs/exists? "node_modules")
+                   (shell "npm run clean")))}
+  
+  release {:doc "Create release build for all platforms"
+           :task (do
+                   (println "📦 Creating release builds...")
+                   (run 'clean)
+                   (run 'test:all)
+                   (run 'build)
+                   (shell "bb build/package-all-platforms.clj"))}
+  
+  install {:doc "Install BBPad to local system"
+           :task (shell "bb build/install.clj")}
+  
+  format {:doc "Format code using cljfmt"
+          :task (shell "bb format/format-code.clj")}
+  
+  lint {:doc "Lint code using clj-kondo"
+        :task (shell "clj-kondo --lint src test --config .clj-kondo/config.edn")}}}

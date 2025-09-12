@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for testing
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: bbpad_test
+      POSTGRES_USER: bbpad_user
+      POSTGRES_PASSWORD: bbpad_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./test-data/postgres:/docker-entrypoint-initdb.d/
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bbpad_user -d bbpad_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MySQL for testing
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: bbpad_test
+      MYSQL_USER: bbpad_user
+      MYSQL_PASSWORD: bbpad_pass
+      MYSQL_ROOT_PASSWORD: root_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./test-data/mysql:/docker-entrypoint-initdb.d/
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "bbpad_user", "-pbbpad_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MS SQL Server for testing
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      SA_PASSWORD: "BBPad123!"
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Express"
+    ports:
+      - "1434:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+      - ./test-data/mssql:/docker-entrypoint-initdb.d/
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'BBPad123!' -Q 'SELECT 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  mysql_data:
+  mssql_data:

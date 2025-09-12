@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Rich Results</title>
+    <style>
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+        }
+        .test-button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .result {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2d2d30;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border: 1px solid #555;
+        }
+        th {
+            background: #3e3e42;
+            color: #9cdcfe;
+        }
+    </style>
+</head>
+<body>
+    <h1>BBPad Rich Results Test</h1>
+    
+    <div>
+        <button class="test-button" onclick="testMap()">Test Map</button>
+        <button class="test-button" onclick="testTable()">Test Table</button>
+        <button class="test-button" onclick="testVector()">Test Vector</button>
+        <button class="test-button" onclick="testSimple()">Test Simple Value</button>
+    </div>
+    
+    <div id="result" class="result"></div>
+
+    <script>
+        const API_URL = 'http://localhost:8080/api/execute';
+        
+        async function executeCode(code) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Executing...';
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ code })
+                });
+                
+                const data = await response.json();
+                console.log('Response:', data);
+                
+                if (data.success && data.result) {
+                    displayResult(data.result);
+                } else {
+                    resultDiv.innerHTML = `Error: ${data.error || 'Unknown error'}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `Network error: ${error.message}`;
+            }
+        }
+        
+        function displayResult(result) {
+            const resultDiv = document.getElementById('result');
+            
+            let html = `<strong>Type:</strong> ${result.type}<br>`;
+            html += `<strong>Data Type:</strong> ${result['data-type'] || 'unknown'}<br><br>`;
+            
+            if (result.type === 'table' && result.data) {
+                html += '<table>';
+                const keys = Object.keys(result.data[0]);
+                html += '<tr>' + keys.map(k => `<th>${k}</th>`).join('') + '</tr>';
+                result.data.forEach(row => {
+                    html += '<tr>' + keys.map(k => `<td>${row[k]}</td>`).join('') + '</tr>';
+                });
+                html += '</table>';
+            } else if (result.content) {
+                html += `<strong>Content:</strong><br><pre>${result.content}</pre>`;
+            }
+            
+            if (result.data && result.type !== 'table') {
+                html += `<br><strong>Data:</strong><br><pre>${JSON.stringify(result.data, null, 2)}</pre>`;
+            }
+            
+            resultDiv.innerHTML = html;
+        }
+        
+        function testMap() {
+            executeCode('{:name "John" :age 30 :skills ["Clojure" "Java"]}');
+        }
+        
+        function testTable() {
+            executeCode('[{:name "Alice" :age 30} {:name "Bob" :age 25}]');
+        }
+        
+        function testVector() {
+            executeCode('[1 2 3 4 5]');
+        }
+        
+        function testSimple() {
+            executeCode('(+ 1 2)');
+        }
+    </script>
+</body>
+</html>

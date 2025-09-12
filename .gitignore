@@ -1,0 +1,32 @@
+# Clojure
+.clj-kondo/
+.cpcache/
+.lsp/
+
+# Node.js
+node_modules/
+
+# Build artifacts
+.shadow-cljs/
+resources/public/js/cljs-runtime/
+
+# Database files
+*.db
+dev.db
+test.db
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test data
+test-data/
