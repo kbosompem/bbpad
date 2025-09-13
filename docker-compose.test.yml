@@ -38,7 +38,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # MS SQL Server for testing
+  # MS SQL Server for testing #bbpad_user Bbpad_pass1!
   mssql:
     image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
