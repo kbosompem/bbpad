@@ -14,10 +14,60 @@
     "electron": "electron .",
     "electron:dev": "NODE_ENV=development electron .",
     "app": "npm run build && npm run electron",
-    "app:dev": "npm run build && npm run electron:dev"
+    "app:dev": "npm run build && npm run electron:dev",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --windows",
+    "dist:mac": "electron-builder --macos",
+    "dist:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.kbosompem.bbpad",
+    "productName": "BBPad",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron-main.js",
+      "bbpad-ui/dist/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
   },
   "devDependencies": {
     "electron": "^38.1.0",
+    "electron-builder": "^26.0.12",
     "rimraf": "^5.0.5"
   },
   "engines": {
