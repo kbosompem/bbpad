@@ -37,7 +37,7 @@
               app.innerHTML = `
                 <div style='padding: 20px; max-width: 1200px; margin: 0 auto;'>
                   <h1>BBPad - Development Mode</h1>
-                  <p>Babashka-powered LINQPad alternative</p>
+                  <p>Babashka-powered Desktop App</p>
                   <div style='background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;'>
                     <h3>✅ Server Status</h3>
                     <p>HTTP Server: Running</p>
@@ -317,13 +317,16 @@
   "Save a script to the database"
   [{:keys [body] :as request}]
   (try
-    (let [{:keys [id name content language tags]} (:body request)
+    (let [{:keys [id name content language tags collection-id description is-favorite]} (:body request)
           result (app-storage/save-script! 
                   {:id id
                    :name name
                    :content content
                    :language (or language "clojure")
-                   :tags tags})]
+                   :tags tags
+                   :collection-id collection-id
+                   :description description
+                   :is-favorite is-favorite})]
       {:status 200
        :headers {"Content-Type" "application/json"}
        :body result})
@@ -335,9 +338,10 @@
 
 (defn get-script-handler
   "Get a script by ID"
-  [{:keys [params] :as request}]
+  [{:keys [params uri] :as request}]
   (try
-    (let [id (:id params)
+    (let [id (or (:id params) 
+                 (last (str/split uri #"/")))
           script (app-storage/get-script id)]
       (if script
         {:status 200
@@ -402,7 +406,11 @@
          {:script-id script-id
           :result (when (:success result) (:result result))
           :error (when-not (:success result) (:error result))
-          :execution-time execution-time}))
+          :execution-time execution-time
+          :memory-usage (:memory-usage result)
+          :exit-code (if (:success result) 0 1)
+          :parameters parameters
+          :script-version 1}))
       
       (if (:success result)
         {:status 200
@@ -416,6 +424,99 @@
          :body {:success false
                 :error (:error result)
                 :execution-time execution-time}}))
+    (catch Exception e
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body {:success false
+              :error (.getMessage e)}})))
+
+;; Tab session handlers
+(defn save-tab-session-handler
+  "Save the current tab session"
+  [{:keys [body] :as request}]
+  (try
+    (let [{:keys [tabs active-tab]} (:body request)
+          result (app-storage/save-tab-session! {:tabs tabs :active-tab active-tab})]
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body result})
+    (catch Exception e
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body {:success false
+              :error (.getMessage e)}})))
+
+(defn load-tab-session-handler
+  "Load the saved tab session"
+  [request]
+  (try
+    (let [result (app-storage/load-tab-session)]
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body (or result {:success false :error "No session found"})})
+    (catch Exception e
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body {:success false
+              :error (.getMessage e)}})))
+
+;; Enhanced history and collections handlers
+(defn get-script-history-handler
+  "Get execution history for a script"
+  [{:keys [params uri] :as request}]
+  (try
+    (let [script-id (or (:id params) (last (str/split uri #"/")))
+          limit (Integer/parseInt (or (:limit params) "10"))
+          history (app-storage/get-script-results script-id :limit limit)]
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body {:success true :history history}})
+    (catch Exception e
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body {:success false
+              :error (.getMessage e)}})))
+
+(defn get-execution-statistics-handler
+  "Get execution statistics for scripts"
+  [{:keys [params] :as request}]
+  (try
+    (let [script-id (:script-id params)
+          days (Integer/parseInt (or (:days params) "30"))
+          stats (app-storage/get-execution-statistics :script-id script-id :days days)]
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body {:success true :statistics stats}})
+    (catch Exception e
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body {:success false
+              :error (.getMessage e)}})))
+
+(defn get-recent-scripts-handler
+  "Get recently accessed scripts"
+  [{:keys [params] :as request}]
+  (try
+    (let [limit (Integer/parseInt (or (:limit params) "10"))
+          recent (app-storage/get-recent-scripts :limit limit)]
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body {:success true :scripts recent}})
+    (catch Exception e
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body {:success false
+              :error (.getMessage e)}})))
+
+(defn toggle-script-favorite-handler
+  "Toggle favorite status of a script"
+  [{:keys [params uri] :as request}]
+  (try
+    (let [script-id (or (:id params) (last (str/split uri #"/")))
+          result (app-storage/toggle-script-favorite! script-id)]
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body result})
     (catch Exception e
       {:status 500
        :headers {"Content-Type" "application/json"}

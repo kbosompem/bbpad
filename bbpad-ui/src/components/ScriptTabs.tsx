@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { X, Plus, FileText } from 'lucide-react'
@@ -61,14 +61,12 @@ export function ScriptTabs({
                     {getTabTitle(tab)}
                   </span>
                   {tabs.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-4 w-4 p-0 hover:bg-muted-foreground/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                    <div
+                      className="h-4 w-4 rounded hover:bg-muted-foreground/20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center"
                       onClick={(e) => handleTabClose(e, tab.id)}
                     >
                       <X className="h-3 w-3" />
-                    </Button>
+                    </div>
                   )}
                 </div>
               </TabsTrigger>
@@ -120,15 +118,61 @@ export function useScriptTabs(initialTab?: Partial<ScriptTab>) {
     { ...defaultTab, ...initialTab }
   ])
   const [activeTab, setActiveTab] = useState(tabs[0].id)
+  const [initialized, setInitialized] = useState(false)
 
-  const addTab = useCallback(() => {
-    const newId = `tab-${Date.now()}`
+  // Load tab session on initialization
+  useEffect(() => {
+    const loadTabSession = async () => {
+      try {
+        const response = await fetch('http://localhost:8082/api/tabs/load')
+        const data = await response.json()
+        
+        if (data.success && data.tabs && data.tabs.length > 0) {
+          setTabs(data.tabs)
+          setActiveTab(data['active-tab'] || data.tabs[0].id)
+        }
+      } catch (error) {
+        console.log('No saved tab session found, using default')
+      }
+      setInitialized(true)
+    }
+
+    loadTabSession()
+  }, [])
+
+  // Save tab session when tabs or active tab changes (but only after initialization)
+  useEffect(() => {
+    if (!initialized) return
+    
+    const saveTabSession = async () => {
+      try {
+        await fetch('http://localhost:8082/api/tabs/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            tabs: tabs,
+            'active-tab': activeTab
+          }),
+        })
+      } catch (error) {
+        console.error('Failed to save tab session:', error)
+      }
+    }
+
+    const debounceTimer = setTimeout(saveTabSession, 1000) // Debounce saves
+    return () => clearTimeout(debounceTimer)
+  }, [tabs, activeTab, initialized])
+
+  const addTab = useCallback((tabData?: Partial<ScriptTab>) => {
+    const newId = tabData?.id || `tab-${Date.now()}`
     const newTab: ScriptTab = {
       id: newId,
-      title: `Script ${tabs.length + 1}`,
-      content: '; New script\n',
-      modified: false,
-      language: 'clojure'
+      title: tabData?.title || `Script ${tabs.length + 1}`,
+      content: tabData?.content || '; New script\n',
+      modified: tabData?.modified ?? false,
+      language: tabData?.language || 'clojure'
     }
     setTabs(prev => [...prev, newTab])
     setActiveTab(newId)
@@ -160,6 +204,16 @@ export function useScriptTabs(initialTab?: Partial<ScriptTab>) {
     ))
   }, [])
 
+  const updateTab = useCallback((tabId: string, updates: Partial<ScriptTab>) => {
+    setTabs(prev => prev.map(tab => 
+      tab.id === tabId ? { ...tab, ...updates } : tab
+    ))
+    // If the ID changed, update the active tab too
+    if (updates.id && updates.id !== tabId && activeTab === tabId) {
+      setActiveTab(updates.id)
+    }
+  }, [activeTab])
+
   const getCurrentTab = useCallback(() => {
     return tabs.find(tab => tab.id === activeTab) || tabs[0]
   }, [tabs, activeTab])
@@ -172,6 +226,7 @@ export function useScriptTabs(initialTab?: Partial<ScriptTab>) {
     closeTab,
     updateTabContent,
     updateTabTitle,
+    updateTab,
     getCurrentTab
   }
 }

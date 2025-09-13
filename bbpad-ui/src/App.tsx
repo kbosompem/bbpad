@@ -10,13 +10,15 @@ import { ConnectionsPanel } from '@/components/ConnectionsPanel'
 import { ScriptTabs, useScriptTabs } from '@/components/ScriptTabs'
 import { useCommandPalette } from '@/components/CommandPalette'
 import { BabashkaLogo } from '@/components/BabashkaLogo'
-import { 
-  Play, 
-  Square, 
-  Save, 
-  FolderOpen, 
-  Settings, 
-  Moon, 
+import { SaveScriptDialog } from '@/components/SaveScriptDialog'
+import { OpenScriptDialog } from '@/components/OpenScriptDialog'
+import {
+  Play,
+  Square,
+  Save,
+  FolderOpen,
+  Settings,
+  Moon,
   Sun,
   Database,
   Share,
@@ -52,7 +54,7 @@ function AppContent() {
     const currentTab = scriptTabs.getCurrentTab()
     setIsExecuting(true)
     setResult('Executing...')
-    
+
     try {
       const response = await fetch('http://localhost:8082/api/execute', {
         method: 'POST',
@@ -61,24 +63,24 @@ function AppContent() {
         },
         body: JSON.stringify({ code: currentTab.content }),
       })
-      
+
       const data: ApiResponse = await response.json()
-      
+
       if (data.success) {
         let resultText = ''
-        
+
         if (data.output) {
           resultText += `Output:\n${data.output}\n\n`
         }
-        
+
         if (data.result) {
           resultText += `Result (${data.result.type}):\n${data.result.content}`
         }
-        
+
         if (data['execution-time']) {
           resultText += `\n\n⚡ Executed in ${data['execution-time']}ms`
         }
-        
+
         setResult(resultText)
       } else {
         setResult(`❌ Error: ${data.error || 'Unknown error occurred'}`)
@@ -95,12 +97,9 @@ function AppContent() {
     setIsExecuting(false)
   }
 
-  const saveScript = async () => {
+  const saveScript = async (name: string, tags?: string) => {
     const currentTab = scriptTabs.getCurrentTab()
-    const name = prompt('Enter a name for this script:', currentTab.name || 'Untitled Script')
-    
-    if (!name) return
-    
+
     try {
       const response = await fetch('http://localhost:8082/api/scripts/save', {
         method: 'POST',
@@ -108,56 +107,49 @@ function AppContent() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          id: currentTab.id,
+          id: currentTab.id.startsWith('script-') ? currentTab.id : undefined,
           name: name,
           content: currentTab.content,
           language: 'clojure',
-          tags: ''
+          tags: tags || ''
         }),
       })
-      
+
       const data = await response.json()
       if (data.success) {
-        scriptTabs.updateTab(currentTab.id, { ...currentTab, name })
-        alert(`Script saved successfully!`)
+        // Update the tab with the saved script info
+        scriptTabs.updateTab(currentTab.id, {
+          id: data.id, // Use the script ID returned from the server
+          title: name,
+          modified: false // Mark as saved
+        })
       } else {
-        alert(`Failed to save script: ${data.error}`)
+        throw new Error(data.error || 'Failed to save script')
       }
     } catch (error) {
-      alert(`Error saving script: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      throw error
     }
   }
 
-  const openScript = async () => {
+  const openScript = async (scriptId: string) => {
     try {
-      const response = await fetch('http://localhost:8082/api/scripts/list')
-      const data = await response.json()
-      
-      if (data.success && data.scripts && data.scripts.length > 0) {
-        const scriptNames = data.scripts.map((s: any) => `${s.name} (${s.id})`)
-        const selected = prompt(`Select a script to open:\n\n${scriptNames.join('\n')}`, '')
-        
-        if (selected) {
-          const scriptId = selected.match(/\((.*?)\)$/)?.[1]
-          if (scriptId) {
-            const scriptResponse = await fetch(`http://localhost:8082/api/scripts/get/${scriptId}`)
-            const scriptData = await scriptResponse.json()
-            
-            if (scriptData.success && scriptData.script) {
-              const script = scriptData.script
-              scriptTabs.addTab({
-                id: script.id,
-                name: script.name,
-                content: script.content
-              })
-            }
-          }
-        }
+      const scriptResponse = await fetch(`http://localhost:8082/api/scripts/get/${scriptId}`)
+      const scriptData = await scriptResponse.json()
+
+      if (scriptData.success && scriptData.script) {
+        const script = scriptData.script
+        scriptTabs.addTab({
+          id: script.id,
+          title: script.name,
+          content: script.content,
+          modified: false,
+          language: script.language || 'clojure'
+        })
       } else {
-        alert('No saved scripts found')
+        throw new Error('Failed to load script')
       }
     } catch (error) {
-      alert(`Error opening script: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      throw error
     }
   }
 
@@ -223,9 +215,9 @@ function AppContent() {
               <p className="text-xs text-muted-foreground leading-none">Babashka Script Runner</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="hidden sm:inline">Babashka-powered LINQPad alternative</span>
+            <span className="hidden sm:inline">Babashka-powered Desktop App</span>
             <div className="h-4 w-px bg-border hidden sm:block" />
             <span>v0.1.0</span>
           </div>
@@ -246,19 +238,20 @@ function AppContent() {
         </div>
 
         <ToolbarSeparator />
-        
-        <ToolbarButton onClick={openScript}>
-          <FolderOpen className="h-4 w-4 mr-1" />
-          Open
-        </ToolbarButton>
-        
-        <ToolbarButton onClick={saveScript}>
-          <Save className="h-4 w-4 mr-1" />
-          Save
-        </ToolbarButton>
+
+        <OpenScriptDialog onOpen={openScript} />
+
+        <SaveScriptDialog
+          currentScript={{
+            id: scriptTabs.getCurrentTab().id,
+            name: scriptTabs.getCurrentTab().name || '',
+            content: scriptTabs.getCurrentTab().content
+          }}
+          onSave={saveScript}
+        />
 
         <ToolbarSeparator />
-        
+
         <DatabaseConnectionsDialog
           trigger={
             <ToolbarButton>
@@ -267,19 +260,19 @@ function AppContent() {
             </ToolbarButton>
           }
         />
-        
+
         <ToolbarButton>
           <Share className="h-4 w-4 mr-1" />
           Share
         </ToolbarButton>
 
         <div className="flex-1" />
-        
+
         <ToolbarButton>
           <HelpCircle className="h-4 w-4 mr-1" />
           Help
         </ToolbarButton>
-        
+
         <ToolbarButton>
           <Settings className="h-4 w-4 mr-1" />
           Settings
@@ -313,7 +306,7 @@ function AppContent() {
                           {tab.language || 'Clojure'} • {tab.content.split('\n').length} lines
                         </div>
                       </div>
-                      <CodeEditor 
+                      <CodeEditor
                         value={tab.content}
                         onChange={(value) => scriptTabs.updateTabContent(tab.id, value || '')}
                         className="h-[calc(100%-2rem)]"
@@ -327,7 +320,7 @@ function AppContent() {
 
               {/* Results Panel */}
               <ResizablePanel defaultSize={40} minSize={20}>
-                <ResultsPanel 
+                <ResultsPanel
                   result={result}
                   isExecuting={isExecuting}
                   className="h-full"

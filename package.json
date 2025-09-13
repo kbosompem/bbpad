@@ -4,30 +4,18 @@
   "description": "A LINQPad-inspired desktop app for Babashka scripts",
   "private": true,
   "scripts": {
-    "build:dev": "shadow-cljs compile app",
-    "build:prod": "shadow-cljs release app",
-    "build:watch": "shadow-cljs watch app",
-    "test": "shadow-cljs compile test && node out/test.js",
-    "test:watch": "shadow-cljs watch test",
+    "dev": "cd bbpad-ui && npm run dev",
+    "build": "cd bbpad-ui && npm run build",
+    "test": "cd bbpad-ui && npm run lint",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "clean": "rimraf out resources/public/js target",
-    "dev": "concurrently \"npm run build:watch\" \"bb dev\"",
-    "lint:js": "eslint src/bbpad/ui --ext .cljs",
-    "format:js": "prettier --write \"src/**/*.{cljs,cljc}\"",
-    "postinstall": "playwright install"
+    "clean": "rimraf bbpad-ui/dist target",
+    "install-ui": "cd bbpad-ui && npm install",
+    "postinstall": "npm run install-ui && playwright install"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
-    "concurrently": "^8.2.2",
-    "eslint": "^8.55.0",
-    "prettier": "^3.1.0",
-    "rimraf": "^5.0.5",
-    "shadow-cljs": "^2.26.2"
-  },
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "rimraf": "^5.0.5"
   },
   "engines": {
     "node": ">=18.0.0",

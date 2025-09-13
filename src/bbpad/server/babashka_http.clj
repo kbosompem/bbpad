@@ -92,6 +92,15 @@
     :method :post
     :response handlers/get-datalevin-stats}
    
+   ;; Tab session management
+   {:path "/api/tabs/save"
+    :method :post
+    :response handlers/save-tab-session-handler}
+   
+   {:path "/api/tabs/load"
+    :method :get
+    :response handlers/load-tab-session-handler}
+   
    ;; Health check
    {:path "/api/health"
     :method :get
