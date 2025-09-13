@@ -3,6 +3,7 @@
   (:require [bbpad.core.script-engine :as script-engine]
             [bbpad.core.script-storage :as storage]
             [bbpad.db.connections :as db]
+            [bbpad.db.app-storage :as app-storage]
             [bbpad.core.config :as config]
             [clojure.data.json :as json]
             [clojure.string :as str]
@@ -309,3 +310,114 @@
              "Cache-Control" "no-cache"
              "Connection" "keep-alive"}
    :body "data: {\"type\": \"connected\", \"message\": \"BBPad event stream connected\"}\n\n"})
+
+;; Script management handlers
+
+(defn save-script-handler
+  "Save a script to the database"
+  [{:keys [body] :as request}]
+  (try
+    (let [{:keys [id name content language tags]} (:body request)
+          result (app-storage/save-script! 
+                  {:id id
+                   :name name
+                   :content content
+                   :language (or language "clojure")
+                   :tags tags})]
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body result})
+    (catch Exception e
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body {:success false
+              :error (.getMessage e)}})))
+
+(defn get-script-handler
+  "Get a script by ID"
+  [{:keys [params] :as request}]
+  (try
+    (let [id (:id params)
+          script (app-storage/get-script id)]
+      (if script
+        {:status 200
+         :headers {"Content-Type" "application/json"}
+         :body {:success true :script script}}
+        {:status 404
+         :headers {"Content-Type" "application/json"}
+         :body {:success false :error "Script not found"}}))
+    (catch Exception e
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body {:success false
+              :error (.getMessage e)}})))
+
+(defn list-scripts-handler
+  "List all saved scripts"
+  [{:keys [params] :as request}]
+  (try
+    (let [{:keys [search tags limit offset]} params
+          scripts (app-storage/list-scripts 
+                   {:search search
+                    :tags tags
+                    :limit (when limit (Integer/parseInt limit))
+                    :offset (when offset (Integer/parseInt offset))})]
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body {:success true :scripts scripts}})
+    (catch Exception e
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body {:success false
+              :error (.getMessage e)}})))
+
+(defn delete-script-handler
+  "Delete a script"
+  [{:keys [body] :as request}]
+  (try
+    (let [{:keys [id]} (:body request)
+          result (app-storage/delete-script! id)]
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body result})
+    (catch Exception e
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body {:success false
+              :error (.getMessage e)}})))
+
+(defn execute-and-save-script
+  "Execute a script and save the result to history"
+  [{:keys [body] :as request}]
+  (try
+    (let [{:keys [code script-id parameters context]} (:body request)
+          start-time (System/currentTimeMillis)
+          result (script-engine/execute-script code {:parameters parameters
+                                                     :context context})
+          execution-time (- (System/currentTimeMillis) start-time)]
+      
+      ;; Save execution result if script-id is provided
+      (when script-id
+        (app-storage/save-script-result!
+         {:script-id script-id
+          :result (when (:success result) (:result result))
+          :error (when-not (:success result) (:error result))
+          :execution-time execution-time}))
+      
+      (if (:success result)
+        {:status 200
+         :headers {"Content-Type" "application/json"}
+         :body {:success true
+                :result (:result result)
+                :output (:output result)
+                :execution-time execution-time}}
+        {:status 500
+         :headers {"Content-Type" "application/json"}
+         :body {:success false
+                :error (:error result)
+                :execution-time execution-time}}))
+    (catch Exception e
+      {:status 500
+       :headers {"Content-Type" "application/json"}
+       :body {:success false
+              :error (.getMessage e)}})))

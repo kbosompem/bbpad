@@ -54,7 +54,7 @@ function AppContent() {
     setResult('Executing...')
     
     try {
-      const response = await fetch('http://localhost:8081/api/execute', {
+      const response = await fetch('http://localhost:8082/api/execute', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,6 +93,72 @@ function AppContent() {
   const stopExecution = () => {
     // TODO: Implement execution cancellation
     setIsExecuting(false)
+  }
+
+  const saveScript = async () => {
+    const currentTab = scriptTabs.getCurrentTab()
+    const name = prompt('Enter a name for this script:', currentTab.name || 'Untitled Script')
+    
+    if (!name) return
+    
+    try {
+      const response = await fetch('http://localhost:8082/api/scripts/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: currentTab.id,
+          name: name,
+          content: currentTab.content,
+          language: 'clojure',
+          tags: ''
+        }),
+      })
+      
+      const data = await response.json()
+      if (data.success) {
+        scriptTabs.updateTab(currentTab.id, { ...currentTab, name })
+        alert(`Script saved successfully!`)
+      } else {
+        alert(`Failed to save script: ${data.error}`)
+      }
+    } catch (error) {
+      alert(`Error saving script: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  const openScript = async () => {
+    try {
+      const response = await fetch('http://localhost:8082/api/scripts/list')
+      const data = await response.json()
+      
+      if (data.success && data.scripts && data.scripts.length > 0) {
+        const scriptNames = data.scripts.map((s: any) => `${s.name} (${s.id})`)
+        const selected = prompt(`Select a script to open:\n\n${scriptNames.join('\n')}`, '')
+        
+        if (selected) {
+          const scriptId = selected.match(/\((.*?)\)$/)?.[1]
+          if (scriptId) {
+            const scriptResponse = await fetch(`http://localhost:8082/api/scripts/get/${scriptId}`)
+            const scriptData = await scriptResponse.json()
+            
+            if (scriptData.success && scriptData.script) {
+              const script = scriptData.script
+              scriptTabs.addTab({
+                id: script.id,
+                name: script.name,
+                content: script.content
+              })
+            }
+          }
+        }
+      } else {
+        alert('No saved scripts found')
+      }
+    } catch (error) {
+      alert(`Error opening script: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
   }
 
   // Command Palette Setup
@@ -181,12 +247,12 @@ function AppContent() {
 
         <ToolbarSeparator />
         
-        <ToolbarButton>
+        <ToolbarButton onClick={openScript}>
           <FolderOpen className="h-4 w-4 mr-1" />
           Open
         </ToolbarButton>
         
-        <ToolbarButton>
+        <ToolbarButton onClick={saveScript}>
           <Save className="h-4 w-4 mr-1" />
           Save
         </ToolbarButton>
@@ -284,7 +350,7 @@ function AppContent() {
         <div className="flex items-center gap-4">
           <span>Ready</span>
           <span>•</span>
-          <span>localhost:8081</span>
+          <span>localhost:8082</span>
         </div>
         <div className="flex items-center gap-2">
           <span>BBPad v0.1.0</span>

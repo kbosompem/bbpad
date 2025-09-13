@@ -7,6 +7,9 @@
  
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
         
+        ;; HTTP Server
+        http-kit/http-kit {:mvn/version "2.7.0"}
+        
         ;; Routing library for Babashka
         org.clojars.askonomm/ruuter {:mvn/version "1.3.4"}
         

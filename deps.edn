@@ -3,6 +3,9 @@
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
         org.clojure/clojurescript {:mvn/version "1.11.121"}
         
+        ;; HTTP Server
+        http-kit/http-kit {:mvn/version "2.7.0"}
+        
         ;; Shadow-CLJS
         thheller/shadow-cljs {:mvn/version "2.26.2"}
         

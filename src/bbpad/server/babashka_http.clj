@@ -33,6 +33,23 @@
     :method :get
     :response handlers/list-scripts}
    
+   ;; New script storage operations
+   {:path "/api/scripts/save"
+    :method :post
+    :response handlers/save-script-handler}
+   
+   {:path "/api/scripts/get/:id"
+    :method :get
+    :response handlers/get-script-handler}
+   
+   {:path "/api/scripts/list"
+    :method :get
+    :response handlers/list-scripts-handler}
+   
+   {:path "/api/scripts/delete"
+    :method :post
+    :response handlers/delete-script-handler}
+   
    ;; Database operations
    {:path "/api/connections"
     :method :get
@@ -95,7 +112,7 @@
           
           ;; SPA catchall for GET requests
           (= :get (:request-method request))
-          (handlers/serve-index)
+          (handlers/serve-index request)
           
           ;; 404 for everything else
           :else
