@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "A LINQPad-inspired desktop app for Babashka scripts",
   "private": true,
+  "main": "electron-main.js",
   "scripts": {
     "dev": "cd bbpad-ui && npm run dev",
     "build": "cd bbpad-ui && npm run build",
@@ -11,10 +12,15 @@
     "test:e2e:ui": "playwright test --ui",
     "clean": "rimraf bbpad-ui/dist target",
     "install-ui": "cd bbpad-ui && npm install",
-    "postinstall": "npm run install-ui && playwright install"
+    "postinstall": "npm run install-ui && playwright install",
+    "electron": "electron .",
+    "electron:dev": "NODE_ENV=development electron .",
+    "app": "npm run build && npm run electron",
+    "app:dev": "npm run build && npm run electron:dev"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
+    "electron": "^38.1.0",
     "rimraf": "^5.0.5"
   },
   "engines": {

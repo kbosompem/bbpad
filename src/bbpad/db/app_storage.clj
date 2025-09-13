@@ -140,7 +140,7 @@
   ")
   
   ;; Create default collection if none exists
-  (let [existing (sqlite/query db-path "SELECT COUNT(*) as count FROM collections")]
+  (let [existing (sqlite/query db-path ["SELECT COUNT(*) as count FROM collections"])]
     (when (= 0 (:count (first existing)))
       (sqlite/execute! db-path 
                       ["INSERT INTO collections (id, name, description, icon) VALUES (?, ?, ?, ?)"
@@ -200,7 +200,7 @@
   (init-db!)
   (try
     (println "Listing scripts from:" db-path)
-    (let [results (sqlite/query db-path "SELECT * FROM scripts ORDER BY updated_at DESC")]
+    (let [results (sqlite/query db-path ["SELECT * FROM scripts ORDER BY updated_at DESC"])]
       (println "Found" (count results) "scripts:")
       (doseq [script results]
         (println "  -" (:name script) "(" (:id script) ")"))
@@ -214,8 +214,8 @@
   [id]
   (init-db!)
   (try
-    (sqlite/execute! db-path "DELETE FROM scripts WHERE id = ?" [id])
-    (sqlite/execute! db-path "DELETE FROM script_results WHERE script_id = ?" [id])
+    (sqlite/execute! db-path ["DELETE FROM scripts WHERE id = ?" id])
+    (sqlite/execute! db-path ["DELETE FROM script_results WHERE script_id = ?" id])
     {:success true}
     (catch Exception e
       {:success false :error (.getMessage e)})))
@@ -241,18 +241,19 @@
   (let [conn-id (or id (str "conn-" (System/currentTimeMillis)))
         now (str (java.time.Instant/now))]
     (try
-      (let [existing (sqlite/query db-path 
-                                  "SELECT id FROM connections WHERE id = ?" 
-                                  [conn-id])]
+      (let [existing (sqlite/query db-path
+                                  ["SELECT id FROM connections WHERE id = ?" conn-id])]
         (if (seq existing)
           ;; Update existing connection
-          (sqlite/execute! db-path 
-                          "UPDATE connections SET name = ?, type = ?, config = ?, updated_at = ? WHERE id = ?"
-                          [name type (json/write-str config) now conn-id])
+          (do
+            (sqlite/execute! db-path
+                            ["UPDATE connections SET name = ?, type = ?, config = ?, updated_at = ? WHERE id = ?"
+                             name type (json/write-str config) now conn-id]))
           ;; Insert new connection
-          (sqlite/execute! db-path 
-                          "INSERT INTO connections (id, name, type, config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
-                          [conn-id name type (json/write-str config) now now])))
+          (do
+            (sqlite/execute! db-path
+                            ["INSERT INTO connections (id, name, type, config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+                             conn-id name type (json/write-str config) now now]))))
       {:success true :id conn-id}
       (catch Exception e
         {:success false :error (.getMessage e)}))))
@@ -276,7 +277,7 @@
   []
   (init-db!)
   (try
-    (let [results (sqlite/query db-path "SELECT * FROM connections ORDER BY name")]
+    (let [results (sqlite/query db-path ["SELECT * FROM connections ORDER BY name"])]
       (map #(update % :config (fn [config] (json/read-str config :key-fn keyword))) results))
     (catch Exception e
       (println "Error listing connections:" (.getMessage e))
@@ -287,7 +288,7 @@
   [id]
   (init-db!)
   (try
-    (sqlite/execute! db-path "DELETE FROM connections WHERE id = ?" [id])
+    (sqlite/execute! db-path ["DELETE FROM connections WHERE id = ?" id])
     {:success true}
     (catch Exception e
       {:success false :error (.getMessage e)})))
@@ -315,7 +316,7 @@
   []
   (init-db!)
   (try
-    (let [results (sqlite/query db-path "SELECT * FROM tab_sessions ORDER BY updated_at DESC LIMIT 1")]
+    (let [results (sqlite/query db-path ["SELECT * FROM tab_sessions ORDER BY updated_at DESC LIMIT 1"])]
       (when-let [session (first results)]
         {:success true
          :tabs (json/read-str (:tab_data session) :key-fn keyword)
@@ -344,7 +345,7 @@
   []
   (init-db!)
   (try
-    (sqlite/query db-path "SELECT * FROM collections ORDER BY parent_id, sort_order, name")
+    (sqlite/query db-path ["SELECT * FROM collections ORDER BY parent_id, sort_order, name"])
     (catch Exception e
       (println "Error listing collections:" (.getMessage e))
       [])))
@@ -541,7 +542,7 @@
   []
   (init-db!)
   (try
-    (sqlite/query db-path "SELECT * FROM scripts WHERE is_favorite = 1 ORDER BY name")
+    (sqlite/query db-path ["SELECT * FROM scripts WHERE is_favorite = 1 ORDER BY name"])
     (catch Exception e
       (println "Error getting favorite scripts:" (.getMessage e))
       [])))

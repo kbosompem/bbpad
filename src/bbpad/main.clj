@@ -14,11 +14,13 @@
     :default 0
     :parse-fn #(Integer/parseInt %)
     :validate [#(< 0 % 0x10000) "Must be a number between 0 and 65536"]]
-   
+
    ["-d" "--dev" "Development mode - enables hot reload and debug features"]
-   
+
+   [nil "--no-webview" "Start server only, don't launch webview"]
+
    ["-h" "--help" "Show help"]
-   
+
    ["-v" "--version" "Show version"]])
 
 (defn usage [options-summary]
@@ -48,9 +50,9 @@
   (println msg)
   (System/exit status))
 
-(defn start-bbpad! 
-  "Start BBPad server and WebView"
-  [{:keys [port dev] :as options}]
+(defn start-bbpad!
+  "Start BBPad server and optionally WebView"
+  [{:keys [port dev no-webview] :as options}]
   (try
     (println "🚀 Starting BBPad...")
     (println (str "Version: " (config/get-version)))
@@ -66,10 +68,15 @@
       (when dev
         (println "🔧 Development mode enabled"))
       
-      ;; Launch WebView
-      (println "🌐 Launching WebView...")
-      (webview/launch-webview! webview-url {:dev-mode dev})
-      
+      ;; Launch WebView unless --no-webview flag is set
+      (if no-webview
+        (do
+          (println "🌐 WebView launch skipped (--no-webview flag)")
+          (println (str "🔗 Access BBPad at: " webview-url)))
+        (do
+          (println "🌐 Launching WebView...")
+          (webview/launch-webview! webview-url {:dev-mode dev})))
+
       (println "✅ BBPad is ready!")
       
       ;; Keep main thread alive

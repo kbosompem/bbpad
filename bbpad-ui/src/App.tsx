@@ -12,6 +12,7 @@ import { useCommandPalette } from '@/components/CommandPalette'
 import { BabashkaLogo } from '@/components/BabashkaLogo'
 import { SaveScriptDialog } from '@/components/SaveScriptDialog'
 import { OpenScriptDialog } from '@/components/OpenScriptDialog'
+import { HelpDialog } from '@/components/HelpDialog'
 import {
   Play,
   Square,
@@ -56,7 +57,7 @@ function AppContent() {
     setResult('Executing...')
 
     try {
-      const response = await fetch('http://localhost:8082/api/execute', {
+      const response = await fetch('/api/execute', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -101,7 +102,7 @@ function AppContent() {
     const currentTab = scriptTabs.getCurrentTab()
 
     try {
-      const response = await fetch('http://localhost:8082/api/scripts/save', {
+      const response = await fetch('/api/scripts/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -133,7 +134,7 @@ function AppContent() {
 
   const openScript = async (scriptId: string) => {
     try {
-      const scriptResponse = await fetch(`http://localhost:8082/api/scripts/get/${scriptId}`)
+      const scriptResponse = await fetch(`/api/scripts/get/${scriptId}`)
       const scriptData = await scriptResponse.json()
 
       if (scriptData.success && scriptData.script) {
@@ -268,10 +269,14 @@ function AppContent() {
 
         <div className="flex-1" />
 
-        <ToolbarButton>
-          <HelpCircle className="h-4 w-4 mr-1" />
-          Help
-        </ToolbarButton>
+        <HelpDialog
+          trigger={
+            <ToolbarButton>
+              <HelpCircle className="h-4 w-4 mr-1" />
+              Help
+            </ToolbarButton>
+          }
+        />
 
         <ToolbarButton>
           <Settings className="h-4 w-4 mr-1" />
@@ -343,7 +348,7 @@ function AppContent() {
         <div className="flex items-center gap-4">
           <span>Ready</span>
           <span>•</span>
-          <span>localhost:8082</span>
+          <span>localhost:8080</span>
         </div>
         <div className="flex items-center gap-2">
           <span>BBPad v0.1.0</span>

@@ -32,7 +32,7 @@
   
   ;; Create launcher script
   (let [launcher (str app-bundle "/Contents/MacOS/" app-name)
-        script "#!/bin/bash\nset -e\nSCRIPT_DIR=\"$( cd \"$( dirname \"${BASH_SOURCE[0]}\" )\" && pwd )\"\nAPP_DIR=\"$SCRIPT_DIR/../Resources\"\nexport BBPAD_APP_DIR=\"$APP_DIR\"\nexport BBPAD_BUNDLED=true\ncd \"$APP_DIR\"\nexec bb src/bbpad/main.clj \"$@\"\n"]
+        script "#!/bin/bash\nset -e\n\n# Get application directory\nSCRIPT_DIR=\"$( cd \"$( dirname \"${BASH_SOURCE[0]}\" )\" && pwd )\"\nAPP_DIR=\"$SCRIPT_DIR/../Resources\"\n\n# Set environment variables\nexport BBPAD_APP_DIR=\"$APP_DIR\"\nexport BBPAD_BUNDLED=true\n\n# Create log directory\nLOG_DIR=\"$HOME/Library/Logs/BBPad\"\nmkdir -p \"$LOG_DIR\"\n\n# Change to app directory\ncd \"$APP_DIR\"\n\n# Start BBPad in background and detach from terminal\nnohup bb src/bbpad/main.clj \"$@\" > \"$LOG_DIR/bbpad.log\" 2>&1 &\n\n# Give it a moment to start\nsleep 2\n\n# Exit the launcher script\nexit 0\n"]
     (spit launcher script)
     (shell (str "chmod +x " launcher))))
 

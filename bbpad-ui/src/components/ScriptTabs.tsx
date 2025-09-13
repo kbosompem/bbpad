@@ -124,7 +124,7 @@ export function useScriptTabs(initialTab?: Partial<ScriptTab>) {
   useEffect(() => {
     const loadTabSession = async () => {
       try {
-        const response = await fetch('http://localhost:8082/api/tabs/load')
+        const response = await fetch('/api/tabs/load')
         const data = await response.json()
         
         if (data.success && data.tabs && data.tabs.length > 0) {
@@ -146,7 +146,7 @@ export function useScriptTabs(initialTab?: Partial<ScriptTab>) {
     
     const saveTabSession = async () => {
       try {
-        await fetch('http://localhost:8082/api/tabs/save', {
+        await fetch('/api/tabs/save', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

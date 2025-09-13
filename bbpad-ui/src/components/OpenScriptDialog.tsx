@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
-import { FolderOpen, FileText, Clock, Hash } from 'lucide-react'
+import { FolderOpen, FileText, Clock, Hash, Trash2 } from 'lucide-react'
 import { ToolbarButton } from '@/components/ui/toolbar'
 
 interface Script {
@@ -35,6 +35,7 @@ export function OpenScriptDialog({ onOpen }: OpenScriptDialogProps) {
   const [selectedScript, setSelectedScript] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isOpening, setIsOpening] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -45,7 +46,7 @@ export function OpenScriptDialog({ onOpen }: OpenScriptDialogProps) {
   const loadScripts = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('http://localhost:8082/api/scripts/list')
+      const response = await fetch('/api/scripts/list')
       const data = await response.json()
       if (data.success) {
         setScripts(data.scripts || [])
@@ -59,7 +60,7 @@ export function OpenScriptDialog({ onOpen }: OpenScriptDialogProps) {
 
   const handleOpen = async () => {
     if (!selectedScript) return
-    
+
     setIsOpening(true)
     try {
       await onOpen(selectedScript)
@@ -69,6 +70,43 @@ export function OpenScriptDialog({ onOpen }: OpenScriptDialogProps) {
       console.error('Failed to open script:', error)
     } finally {
       setIsOpening(false)
+    }
+  }
+
+  const handleDelete = async (scriptId: string, event: React.MouseEvent) => {
+    event.stopPropagation() // Prevent selecting the script
+
+    const script = scripts.find(s => s.id === scriptId)
+    if (!script || !confirm(`Are you sure you want to delete "${script.name}"? This action cannot be undone.`)) {
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      const response = await fetch('/api/scripts/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id: scriptId }),
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        // Remove the script from the local state
+        setScripts(prev => prev.filter(s => s.id !== scriptId))
+        // Clear selection if the deleted script was selected
+        if (selectedScript === scriptId) {
+          setSelectedScript(null)
+        }
+      } else {
+        throw new Error(data.error || 'Failed to delete script')
+      }
+    } catch (error) {
+      console.error('Failed to delete script:', error)
+      alert('Failed to delete script. Please try again.')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -151,6 +189,20 @@ export function OpenScriptDialog({ onOpen }: OpenScriptDialogProps) {
                             <span>Runs: {script.run_count}</span>
                           )}
                         </div>
+                      </div>
+
+                      {/* Delete button */}
+                      <div className="flex-shrink-0 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                          onClick={(e) => handleDelete(script.id, e)}
+                          disabled={isDeleting}
+                          title="Delete script"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </div>

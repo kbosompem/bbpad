@@ -56,7 +56,7 @@ export function DatabaseConnectionsDialog({ trigger, onConnectionAdded }: Databa
 
   const loadConnections = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/connections')
+      const response = await fetch('/api/connections')
       const data = await response.json()
       if (data.success) {
         setConnections(data.connections)
@@ -71,7 +71,7 @@ export function DatabaseConnectionsDialog({ trigger, onConnectionAdded }: Databa
     setTestResult(null)
     
     try {
-      const response = await fetch('http://localhost:8082/api/connections/test', {
+      const response = await fetch('/api/connections/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -98,8 +98,8 @@ export function DatabaseConnectionsDialog({ trigger, onConnectionAdded }: Databa
     
     try {
       const url = editingConnection ? 
-        'http://localhost:8082/api/connections/update' : 
-        'http://localhost:8082/api/connections'
+        '/api/connections/update' : 
+        '/api/connections'
       
       const response = await fetch(url, {
         method: 'POST',
@@ -146,7 +146,7 @@ export function DatabaseConnectionsDialog({ trigger, onConnectionAdded }: Databa
 
   const removeConnection = async (id: string) => {
     try {
-      const response = await fetch('http://localhost:8082/api/connections/remove', {
+      const response = await fetch('/api/connections/remove', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

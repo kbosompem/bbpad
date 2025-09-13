@@ -1,19 +1,12 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Building self-contained BBPad installer..."
+echo "🚀 Building BBPad Simple Desktop App..."
 
 APP_NAME="BBPad"
 BUILD_DIR="build"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 DMG_NAME="$APP_NAME-0.1.0-macOS.dmg"
-VERSION="0.1.0"
-
-# Clean and create app bundle
-rm -rf "$APP_BUNDLE"
-mkdir -p "$APP_BUNDLE/Contents/MacOS"
-mkdir -p "$APP_BUNDLE/Contents/Resources/bin"
-mkdir -p "$APP_BUNDLE/Contents/Resources/app-data"
 
 # Build React frontend first
 echo "🔨 Building React frontend..."
@@ -21,8 +14,21 @@ if [ -d "bbpad-ui" ]; then
     cd bbpad-ui && npm run build && cd ..
     echo "   React frontend built successfully"
 else
-    echo "   Warning: bbpad-ui directory not found, skipping frontend build"
+    echo "   Error: bbpad-ui directory not found"
+    exit 1
 fi
+
+# Verify frontend build
+if [ ! -d "bbpad-ui/dist" ]; then
+    echo "   Error: bbpad-ui/dist not found - React frontend build failed"
+    exit 1
+fi
+
+# Clean and create app bundle structure
+echo "📦 Creating simple desktop app bundle..."
+rm -rf "$APP_BUNDLE"
+mkdir -p "$APP_BUNDLE/Contents/MacOS"
+mkdir -p "$APP_BUNDLE/Contents/Resources/bin"
 
 # Create enhanced Info.plist
 mkdir -p build/macos
@@ -74,6 +80,17 @@ cat > build/macos/Info.plist << 'INFOPLIST'
             <string>Alternate</string>
         </dict>
     </array>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSExceptionDomains</key>
+        <dict>
+            <key>localhost</key>
+            <dict>
+                <key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+                <true/>
+            </dict>
+        </dict>
+    </dict>
 </dict>
 </plist>
 INFOPLIST
@@ -81,27 +98,18 @@ INFOPLIST
 # Copy Info.plist
 cp build/macos/Info.plist "$APP_BUNDLE/Contents/Info.plist"
 
-# Copy BBPad source files
+# Copy BBPad source files and resources
+echo "📁 Copying application resources..."
 cp -r src "$APP_BUNDLE/Contents/Resources/"
 cp bb.edn "$APP_BUNDLE/Contents/Resources/"
 cp deps.edn "$APP_BUNDLE/Contents/Resources/"
 
-# Copy built React frontend (required for proper operation)
-if [ -d "bbpad-ui/dist" ]; then
-  cp -r bbpad-ui/dist "$APP_BUNDLE/Contents/Resources/public"
-  echo "   React frontend bundled successfully"
-else
-  echo "   Error: bbpad-ui/dist not found - React frontend build required"
-  exit 1
-fi
-
-# Create app data directory for user data
-mkdir -p "$APP_BUNDLE/Contents/Resources/app-data"
+# Copy built React frontend
+cp -r bbpad-ui/dist "$APP_BUNDLE/Contents/Resources/public"
+echo "   React frontend bundled successfully"
 
 # Download and bundle Babashka
 echo "📦 Bundling Babashka..."
-
-# Determine architecture
 ARCH=$(uname -m)
 case $ARCH in
     x86_64)
@@ -117,12 +125,10 @@ case $ARCH in
 esac
 
 if command -v bb >/dev/null 2>&1; then
-    # Copy local bb binary
     cp "$(which bb)" "$APP_BUNDLE/Contents/Resources/bin/bb"
     chmod +x "$APP_BUNDLE/Contents/Resources/bin/bb"
     echo "   Bundled local Babashka binary ($(bb --version))"
 else
-    # Download Babashka for macOS
     BB_VERSION="1.3.194"
     BB_URL="https://github.com/babashka/babashka/releases/download/v${BB_VERSION}/babashka-${BB_VERSION}-${BB_ARCH}.tar.gz"
 
@@ -140,15 +146,16 @@ else
     echo "   Downloaded and bundled Babashka v${BB_VERSION}"
 fi
 
-# Create working shell script launcher (not Swift-based)
+# Create shell script launcher (simpler approach)
 cat > "$APP_BUNDLE/Contents/MacOS/$APP_NAME" << 'LAUNCHER'
 #!/bin/bash
 set -e
 
+echo "Starting BBPad..."
+
 # Get script directory
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 APP_DIR="$SCRIPT_DIR/../Resources"
-BB_PATH="$APP_DIR/bin/bb"
 
 # Create log directory for debugging
 LOG_DIR="$HOME/Library/Logs/BBPad"
@@ -160,7 +167,7 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
-log "Starting BBPad desktop app..."
+log "Starting BBPad..."
 
 # Set environment variables
 export BBPAD_APP_DIR="$APP_DIR"
@@ -178,7 +185,8 @@ cd "$APP_DIR" || {
     exit 1
 }
 
-# Verify bundled Babashka exists and is executable
+# Verify bundled Babashka exists
+BB_PATH="$APP_DIR/bin/bb"
 if [ ! -x "$BB_PATH" ]; then
     log "Error: Bundled Babashka not found or not executable at $BB_PATH"
     osascript -e 'display dialog "BBPad installation is corrupted. The Babashka runtime is missing.\n\nPlease reinstall BBPad." buttons {"OK"} default button "OK"'
@@ -229,7 +237,7 @@ BBPAD_PID=$!
 log "BBPad started with PID $BBPAD_PID"
 
 # Give the server time to start
-sleep 4
+sleep 3
 
 # Check if process is still running
 if kill -0 "$BBPAD_PID" 2>/dev/null; then
@@ -241,94 +249,78 @@ if kill -0 "$BBPAD_PID" 2>/dev/null; then
         log "Warning: Could not open browser automatically"
         osascript -e "display dialog \"BBPad is running on http://localhost:$SERVER_PORT\n\nOpen this URL in your web browser to use BBPad.\" buttons {\"OK\"} default button \"OK\""
     }
-
-    log "BBPad is now running. Desktop app launched successfully."
 else
     log "Error: BBPad failed to start"
     osascript -e 'display dialog "BBPad failed to start. Check Console logs for details.\n\nLog file: '"$LOG_FILE"'" buttons {"OK"} default button "OK"'
     exit 1
 fi
+
+log "BBPad is now running. You can close this terminal."
 LAUNCHER
 
 chmod +x "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
-# Test the bundled app
-echo "🧪 Testing bundled app..."
+# Test the app
+echo "🧪 Testing simple desktop app..."
 if "$APP_BUNDLE/Contents/MacOS/$APP_NAME" --version; then
-    echo "   App bundle test passed"
+    echo "   Desktop app test passed"
 else
-    echo "   Warning: App bundle test failed, but continuing with DMG creation"
+    echo "   Warning: Desktop app test failed"
 fi
 
-# Create enhanced DMG with custom layout
+# Create DMG
 echo "💿 Creating DMG installer..."
 rm -f "$BUILD_DIR/$DMG_NAME"
 
-# Create temporary folder for DMG contents
 DMG_TEMP="$BUILD_DIR/dmg_temp"
 rm -rf "$DMG_TEMP"
 mkdir -p "$DMG_TEMP"
 
-# Copy app bundle to DMG temp folder
 cp -R "$APP_BUNDLE" "$DMG_TEMP/"
-
-# Create Applications symlink for easy installation
 ln -s /Applications "$DMG_TEMP/Applications"
 
-# Create a simple readme/install guide
 cat > "$DMG_TEMP/Installation Instructions.txt" << 'README'
-BBPad Installation Instructions
+BBPad Desktop App Installation Instructions
 
 1. Drag BBPad.app to the Applications folder
 2. Open BBPad from Applications folder or Launchpad
-3. If you see a security warning, go to:
+3. BBPad will start and open in your default browser
+4. If you see a security warning, go to:
    System Preferences > Security & Privacy > General
    and click "Open Anyway"
 
+Features:
+- Self-contained with bundled Babashka runtime
+- Automatic server management
+- Opens in your default web browser
+- Professional desktop app experience
+
 Requirements:
 - macOS 10.15 (Catalina) or later
-- No additional dependencies required (Babashka is bundled)
+- No additional dependencies required
 
 For support, visit: https://github.com/kbosompem/bbpad
 README
 
-# Create DMG with enhanced options
-hdiutil create -srcfolder "$DMG_TEMP" -volname "$APP_NAME Installer" -fs HFS+ -fsargs "-c d=64" -format UDZO -imagekey zlib-level=9 -o "$BUILD_DIR/$DMG_NAME"
-
-# Clean up temp folder
+hdiutil create -srcfolder "$DMG_TEMP" -volname "BBPad Desktop" -fs HFS+ -format UDZO -o "$BUILD_DIR/$DMG_NAME"
 rm -rf "$DMG_TEMP"
-
-# Make DMG readable by all users
 chmod 644 "$BUILD_DIR/$DMG_NAME"
 
-echo "✅ Enhanced BBPad installer complete!"
+echo "✅ BBPad Simple Desktop App complete!"
 echo ""
 echo "📦 Installation Package:"
 echo "   App bundle: $APP_BUNDLE"
 echo "   DMG installer: $BUILD_DIR/$DMG_NAME"
 echo ""
-
-# Show detailed file sizes and structure
 echo "📊 Bundle size information:"
 echo "   BBPad.app: $(du -sh "$APP_BUNDLE" | cut -f1)"
 echo "   DMG file: $(du -sh "$BUILD_DIR/$DMG_NAME" | cut -f1)"
-if [ -f "$APP_BUNDLE/Contents/Resources/bin/bb" ]; then
-    echo "   Babashka binary: $(du -sh "$APP_BUNDLE/Contents/Resources/bin/bb" | cut -f1)"
-fi
-if [ -d "$APP_BUNDLE/Contents/Resources/public" ]; then
-    echo "   React frontend: $(du -sh "$APP_BUNDLE/Contents/Resources/public" | cut -f1)"
-fi
 
 echo ""
-echo "🎯 Next Steps:"
-echo "   • Test: open '$APP_BUNDLE'"
-echo "   • Install: open '$BUILD_DIR/$DMG_NAME'"
-echo "   • Distribute: Upload $DMG_NAME for end users"
-
-# Add code signing instructions if not signed
-echo ""
-echo "🔐 For distribution, consider code signing:"
-echo "   codesign --force --deep --sign 'Developer ID Application: Your Name' '$APP_BUNDLE'"
-echo "   xcrun notarytool submit '$BUILD_DIR/$DMG_NAME' --keychain-profile 'notarytool-profile'"
+echo "🎯 This version opens in your default browser but:"
+echo "   ✅ Is a proper macOS app (not just a browser shortcut)"
+echo "   ✅ Manages the Babashka server automatically"
+echo "   ✅ Self-contained with no external dependencies"
+echo "   ✅ Provides proper desktop app experience"
 
 ls -la "$BUILD_DIR/$DMG_NAME"

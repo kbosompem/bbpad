@@ -1,149 +1,148 @@
 (ns bbpad.server.babashka-http
-  "Babashka HTTP server with Ruuter routing for BBPad"
+  "HTTP server using http-kit with custom routing for BBPad"
   (:require [org.httpkit.server :as httpkit]
-            [ruuter.core :as ruuter]
             [bbpad.server.handlers :as handlers]
             [bbpad.core.config :as config]
             [clojure.string :as str]
-            [clojure.data.json :as json]))
+            [clojure.data.json :as json]
+            [clojure.java.io :as io]))
 
 (def ^:dynamic *server* (atom nil))
 
-;; Define routes for Ruuter
-(def routes
-  [;; Main UI
-   {:path "/"
-    :method :get
-    :response handlers/serve-index}
-   
-   ;; API routes
-   {:path "/api/execute"
-    :method :post
-    :response handlers/execute-script}
-   
-   {:path "/api/script/load"
-    :method :post
-    :response handlers/load-script}
-   
-   {:path "/api/script/save"
-    :method :post
-    :response handlers/save-script}
-   
-   {:path "/api/script/list"
-    :method :get
-    :response handlers/list-scripts}
-   
-   ;; New script storage operations
-   {:path "/api/scripts/save"
-    :method :post
-    :response handlers/save-script-handler}
-   
-   {:path "/api/scripts/get/:id"
-    :method :get
-    :response handlers/get-script-handler}
-   
-   {:path "/api/scripts/list"
-    :method :get
-    :response handlers/list-scripts-handler}
-   
-   {:path "/api/scripts/delete"
-    :method :post
-    :response handlers/delete-script-handler}
-   
-   ;; Database operations
-   {:path "/api/connections"
-    :method :get
-    :response handlers/list-connections}
-   
-   {:path "/api/connections"
-    :method :post
-    :response handlers/create-connection}
-   
-   {:path "/api/connections/test"
-    :method :post
-    :response handlers/test-connection}
-   
-   {:path "/api/connections/remove"
-    :method :post
-    :response handlers/remove-connection}
-   
-   {:path "/api/connections/update"
-    :method :post
-    :response handlers/update-connection}
-   
-   {:path "/api/query"
-    :method :post
-    :response handlers/execute-query}
-   
-   {:path "/api/schema"
-    :method :post
-    :response handlers/get-schema}
-   
-   {:path "/api/table-info"
-    :method :post
-    :response handlers/get-table-info}
-   
-   ;; Datalevin-specific operations
-   {:path "/api/datalevin/transact"
-    :method :post
-    :response handlers/transact-datalevin}
-   
-   {:path "/api/datalevin/stats"
-    :method :post
-    :response handlers/get-datalevin-stats}
-   
-   ;; Tab session management
-   {:path "/api/tabs/save"
-    :method :post
-    :response handlers/save-tab-session-handler}
-   
-   {:path "/api/tabs/load"
-    :method :get
-    :response handlers/load-tab-session-handler}
-   
-   ;; Health check
-   {:path "/api/health"
-    :method :get
-    :response (fn [request] 
-                {:status 200 
-                 :headers {"Content-Type" "application/json"}
-                 :body (json/write-str {:status "ok" :version (config/get-version)})})}])
+(defn serve-static-file
+  "Serve static files from bbpad-ui/dist"
+  [path]
+  (let [file-path (str "bbpad-ui/dist/" path)
+        file (io/file file-path)]
+    (when (.exists file)
+      {:status 200
+       :headers {"Content-Type" (handlers/get-content-type path)
+                 "Cache-Control" "public, max-age=31536000"}
+       :body (slurp file)})))
 
-(defn create-router-handler
-  "Create a handler function using Ruuter"
+(defn route-request
+  "Simple routing function that handles all request routing"
+  [request]
+  (let [method (:request-method request)
+        uri (:uri request)]
+    (cond
+      ;; Exact matches first
+      (and (= method :get) (= uri "/"))
+      (handlers/serve-index request)
+
+      ;; API routes
+      (and (= method :post) (= uri "/api/execute"))
+      (handlers/execute-script request)
+
+      (and (= method :post) (= uri "/api/script/load"))
+      (handlers/load-script request)
+
+      (and (= method :post) (= uri "/api/script/save"))
+      (handlers/save-script request)
+
+      (and (= method :get) (= uri "/api/script/list"))
+      (handlers/list-scripts request)
+
+      ;; Script storage operations
+      (and (= method :post) (= uri "/api/scripts/save"))
+      (handlers/save-script-handler request)
+
+      (and (= method :get) (str/starts-with? uri "/api/scripts/get/"))
+      (let [id (subs uri (count "/api/scripts/get/"))]
+        (handlers/get-script-handler (assoc request :params {:id id})))
+
+      (and (= method :get) (= uri "/api/scripts/list"))
+      (handlers/list-scripts-handler request)
+
+      (and (= method :post) (= uri "/api/scripts/delete"))
+      (handlers/delete-script-handler request)
+
+      ;; Database operations
+      (and (= method :get) (= uri "/api/connections"))
+      (handlers/list-connections request)
+
+      (and (= method :post) (= uri "/api/connections"))
+      (handlers/create-connection request)
+
+      (and (= method :post) (= uri "/api/connections/test"))
+      (handlers/test-connection request)
+
+      (and (= method :post) (= uri "/api/connections/remove"))
+      (handlers/remove-connection request)
+
+      (and (= method :post) (= uri "/api/connections/update"))
+      (handlers/update-connection request)
+
+      (and (= method :post) (= uri "/api/query"))
+      (handlers/execute-query request)
+
+      (and (= method :post) (= uri "/api/schema"))
+      (handlers/get-schema request)
+
+      (and (= method :post) (= uri "/api/table-info"))
+      (handlers/get-table-info request)
+
+      ;; Datalevin operations
+      (and (= method :post) (= uri "/api/datalevin/transact"))
+      (handlers/transact-datalevin request)
+
+      (and (= method :post) (= uri "/api/datalevin/stats"))
+      (handlers/get-datalevin-stats request)
+
+      ;; Tab session management
+      (and (= method :post) (= uri "/api/tabs/save"))
+      (handlers/save-tab-session-handler request)
+
+      (and (= method :get) (= uri "/api/tabs/load"))
+      (handlers/load-tab-session-handler request)
+
+      ;; Health check
+      (and (= method :get) (= uri "/api/health"))
+      {:status 200
+       :headers {"Content-Type" "application/json"}
+       :body (json/write-str {:status "ok" :version (config/get-version)})}
+
+      ;; Static assets - check if file exists in dist folder
+      (and (= method :get) (str/starts-with? uri "/assets/"))
+      (let [path (subs uri 1)]
+        (or (serve-static-file path)
+            {:status 404
+             :headers {"Content-Type" "text/plain"}
+             :body "File not found"}))
+
+      ;; Check for any other static files (JS, CSS with hashes)
+      (and (= method :get)
+           (or (str/ends-with? uri ".js")
+               (str/ends-with? uri ".css")
+               (str/ends-with? uri ".svg")
+               (str/ends-with? uri ".png")
+               (str/ends-with? uri ".jpg")
+               (str/ends-with? uri ".ico")))
+      (let [path (subs uri 1)]
+        (or (serve-static-file path)
+            {:status 404
+             :headers {"Content-Type" "text/plain"}
+             :body "File not found"}))
+
+      ;; Catch-all for SPA routing - serve index.html for any other GET request
+      (= method :get)
+      (handlers/serve-index request)
+
+      ;; Default 404 for non-GET requests
+      :else
+      {:status 404
+       :headers {"Content-Type" "text/plain"}
+       :body "Not found"})))
+
+(defn create-app
+  "Create the main application handler"
   []
-  (fn [request]
-    (try
-      (let [response (ruuter/route routes request)]
-        (cond
-          ;; Successful route match
-          response response
-          
-          ;; SPA catchall for GET requests
-          (= :get (:request-method request))
-          (handlers/serve-index request)
-          
-          ;; 404 for everything else
-          :else
-          {:status 404 
-           :headers {"Content-Type" "application/json"}
-           :body (json/write-str {:error "Not found" 
-                                  :path (:uri request) 
-                                  :method (:request-method request)})}))
-      
-      (catch Exception e
-        (println (str "Request handler error: " (.getMessage e)))
-        (when (config/dev-mode?)
-          (.printStackTrace e))
-        {:status 500 
-         :headers {"Content-Type" "application/json"}
-         :body (json/write-str {:error "Internal server error"})}))))
+  route-request)
 
-(defn add-json-middleware
-  "Add JSON parsing middleware"
+(defn wrap-json
+  "Middleware to parse JSON request bodies and encode JSON responses"
   [handler]
   (fn [request]
-    ;; Parse JSON body if present
     (let [request' (if (and (:body request)
                            (str/includes? (get-in request [:headers "content-type"] "") "application/json"))
                      (try
@@ -156,22 +155,18 @@
                          (assoc request :body parsed-body))
                        (catch Exception e
                          (println (str "JSON parse error: " (.getMessage e)))
-                         (println (str "Body type: " (type (:body request))))
-                         (println (str "Body content: " (:body request)))
                          request))
                      request)
-          
-          ;; Call handler
           response (handler request')]
-      
+
       ;; Ensure JSON response body is string
       (if (and (map? (:body response))
                (not (string? (:body response))))
         (assoc response :body (json/write-str (:body response)))
         response))))
 
-(defn add-cors-middleware
-  "Add CORS middleware for development"
+(defn wrap-cors
+  "Add CORS headers for development"
   [handler]
   (fn [request]
     (if (and (config/dev-mode?) (= :options (:request-method request)))
@@ -206,24 +201,23 @@
         (recur (inc port))))))
 
 (defn start-server!
-  "Start the HTTP-Kit server with Ruuter routing"
+  "Start the HTTP-Kit server"
   [{:keys [port dev-mode] :as options}]
   (when @*server*
     (println "⚠️  Server already running, stopping...")
     (@*server*))
-  
+
   (let [actual-port (if (zero? port) (find-free-port 8080) port)
-        handler (-> (create-router-handler)
-                    add-json-middleware
-                    add-cors-middleware)
-        
-        server (httpkit/run-server handler {:port actual-port})]
-    
-    (reset! *server* server)
-    
+        app (create-app)
+        handler (-> app
+                    wrap-json
+                    wrap-cors)]
+
+    (reset! *server* (httpkit/run-server handler {:port actual-port}))
+
     (when dev-mode
-      (println (str "🔧 HTTP-Kit + Ruuter server running at http://localhost:" actual-port)))
-    
+      (println (str "🔧 HTTP-Kit server running at http://localhost:" actual-port)))
+
     actual-port))
 
 (defn stop-server!
@@ -231,7 +225,7 @@
   []
   (when @*server*
     (println "🛑 Stopping HTTP-Kit server...")
-    (@*server*)  ; HTTP-Kit server is a function to stop
+    (@*server*)
     (reset! *server* nil)))
 
 (defn restart-server! [options]

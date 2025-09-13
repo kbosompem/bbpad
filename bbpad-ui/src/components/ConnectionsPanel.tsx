@@ -42,7 +42,7 @@ export function ConnectionsPanel({ className = "" }: ConnectionsPanelProps) {
 
   const loadConnections = async () => {
     try {
-      const response = await fetch('http://localhost:8082/api/connections')
+      const response = await fetch('/api/connections')
       const data = await response.json()
       if (data.success) {
         setConnections(data.connections || [])
@@ -56,7 +56,7 @@ export function ConnectionsPanel({ className = "" }: ConnectionsPanelProps) {
 
   const loadTables = async (connectionId: string) => {
     try {
-      const response = await fetch('http://localhost:8082/api/schema', {
+      const response = await fetch('/api/schema', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 'connection-id': connectionId })
@@ -101,7 +101,7 @@ export function ConnectionsPanel({ className = "" }: ConnectionsPanelProps) {
 
   const removeConnection = async (connectionId: string) => {
     try {
-      const response = await fetch('http://localhost:8082/api/connections/remove', {
+      const response = await fetch('/api/connections/remove', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: connectionId })

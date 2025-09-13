@@ -30,3 +30,8 @@ Thumbs.db
 
 # Test data
 test-data/
+
+build/BBPad.app
+
+*.dmg
+.build/

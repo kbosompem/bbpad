@@ -7,56 +7,106 @@
             [bbpad.core.config :as config]
             [clojure.data.json :as json]
             [clojure.string :as str]
+            [clojure.java.io :as io]
             [hiccup.core :refer [html]]
             [hiccup.page :refer [html5 include-css include-js]]
             ; [clojure.core.async :as async]
             ))
 
+(defn get-public-dir
+  "Get the public directory path based on runtime environment"
+  []
+  (if-let [bundled-dir (System/getenv "BBPAD_APP_DIR")]
+    ;; In bundled app, use the Resources/public directory
+    (str bundled-dir "/public")
+    ;; In development, use bbpad-ui/dist
+    "bbpad-ui/dist"))
+
+(defn get-content-type
+  "Get content type for file extension"
+  [path]
+  (cond
+    (str/ends-with? path ".html") "text/html"
+    (str/ends-with? path ".js") "application/javascript"
+    (str/ends-with? path ".css") "text/css"
+    (str/ends-with? path ".svg") "image/svg+xml"
+    (str/ends-with? path ".png") "image/png"
+    (str/ends-with? path ".jpg") "image/jpeg"
+    (str/ends-with? path ".jpeg") "image/jpeg"
+    (str/ends-with? path ".gif") "image/gif"
+    (str/ends-with? path ".ico") "image/x-icon"
+    (str/ends-with? path ".json") "application/json"
+    :else "application/octet-stream"))
+
+(defn serve-static-file
+  "Serve a static file from the public directory"
+  [path]
+  (let [public-dir (get-public-dir)
+        ;; Handle absolute vs relative paths
+        file-path (if (.startsWith public-dir "/")
+                    (str public-dir "/" path)  ; Absolute path
+                    (str (System/getProperty "user.dir") "/" public-dir "/" path))  ; Relative path
+        file (io/file file-path)]
+    (if (.exists file)
+      {:status 200
+       :headers {"Content-Type" (get-content-type path)
+                 "Cache-Control" "public, max-age=31536000"}
+       :body (slurp file)}
+      nil)))
+
 (defn serve-index
-  "Serve the main HTML page with embedded ClojureScript app"
+  "Serve the React app index.html or fallback to development placeholder"
   [request]
-  {:status 200
-   :headers {"Content-Type" "text/html"}
-   :body (html5
-          [:head
-           [:meta {:charset "utf-8"}]
-           [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
-           [:title "BBPad"]
-           [:style "
-            body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-            #app { height: 100vh; }
-            .loading { display: flex; align-items: center; justify-content: center; height: 100vh; }
-           "]]
-          [:body
-           [:div#app 
-            [:div.loading "🚀 Loading BBPad..."]]
-           [:script "
-            // Simple placeholder for ClojureScript app
-            document.addEventListener('DOMContentLoaded', function() {
-              const app = document.getElementById('app');
-              app.innerHTML = `
-                <div style='padding: 20px; max-width: 1200px; margin: 0 auto;'>
-                  <h1>BBPad - Development Mode</h1>
-                  <p>Babashka-powered Desktop App</p>
-                  <div style='background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;'>
-                    <h3>✅ Server Status</h3>
-                    <p>HTTP Server: Running</p>
-                    <p>Pod Support: Available</p>
-                    <p>Architecture: Pure Babashka</p>
-                  </div>
-                  <div style='background: #e8f5e8; padding: 20px; border-radius: 8px;'>
-                    <h3>🎯 Next Steps</h3>
-                    <ul>
-                      <li>ClojureScript frontend implementation</li>
-                      <li>Script execution engine</li>
-                      <li>Database connectivity</li>
-                      <li>WebView integration</li>
-                    </ul>
-                  </div>
-                </div>
-              `;
-            });
-           "]])})
+  (let [public-dir (get-public-dir)
+        index-file (io/file (str public-dir "/index.html"))]
+    (if (.exists index-file)
+      ;; Serve React build index.html
+      {:status 200
+       :headers {"Content-Type" "text/html"}
+       :body (slurp index-file)}
+      ;; Fallback to development placeholder
+      {:status 200
+       :headers {"Content-Type" "text/html"}
+       :body (html5
+              [:head
+               [:meta {:charset "utf-8"}]
+               [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
+               [:title "BBPad"]
+               [:style "
+                body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+                #app { height: 100vh; }
+                .loading { display: flex; align-items: center; justify-content: center; height: 100vh; }
+               "]]
+              [:body
+               [:div#app
+                [:div.loading "🚀 Loading BBPad..."]]
+               [:script "
+                // Simple placeholder for ClojureScript app
+                document.addEventListener('DOMContentLoaded', function() {
+                  const app = document.getElementById('app');
+                  app.innerHTML = `
+                    <div style='padding: 20px; max-width: 1200px; margin: 0 auto;'>
+                      <h1>BBPad - Development Mode</h1>
+                      <p>Babashka-powered Desktop App</p>
+                      <div style='background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;'>
+                        <h3>✅ Server Status</h3>
+                        <p>HTTP Server: Running</p>
+                        <p>Pod Support: Available</p>
+                        <p>Architecture: Pure Babashka</p>
+                      </div>
+                      <div style='background: #e8f5e8; padding: 20px; border-radius: 8px;'>
+                        <h3>🎯 Next Steps</h3>
+                        <ul>
+                          <li>ClojureScript frontend implementation</li>
+                          <li>Script execution engine</li>
+                          <li>Database connectivity</li>
+                          <li>WebView integration</li>
+                        </ul>
+                      </div>
+                    </div>
+                  `;
+                });
+               "]])})))
 
 (defn execute-script
   "Execute a Babashka script"
@@ -141,7 +191,7 @@
   "List database connections"
   [request]
   (try
-    (let [connections (db/list-connections)]
+    (let [connections (app-storage/list-connections)]
       {:status 200
        :headers {"Content-Type" "application/json"}
        :body {:success true :connections connections}})
@@ -155,16 +205,34 @@
   "Create a new database connection"
   [{:keys [body] :as request}]
   (try
-    (let [{:keys [id config]} (:body request)
-          conn-id (or id (:id config) (str "conn-" (System/currentTimeMillis)))
-          result (db/add-connection! conn-id config)]
-      (if (:success result)
-        {:status 200
-         :headers {"Content-Type" "application/json"}
-         :body {:success true :id (or (:id result) conn-id)}}
+    (let [config-data (if (:config (:body request))
+                        ;; Frontend sends { config: { name, type, host, ... } }
+                        (:config (:body request))
+                        ;; Direct connection data
+                        (:body request))
+          {:keys [id name type] :as connection-data} config-data
+          conn-id (or id (str "conn-" (System/currentTimeMillis)))
+          connection-name (or name (str type " Connection"))
+          connection-type (or type "unknown")]
+
+      ;; Validate required fields
+      (if (or (nil? connection-type) (empty? connection-type))
         {:status 400
          :headers {"Content-Type" "application/json"}
-         :body {:success false :error (:error result)}}))
+         :body {:success false :error "Connection type is required"}}
+
+        (let [connection {:id conn-id
+                          :name connection-name
+                          :type connection-type
+                          :config connection-data}
+              result (app-storage/save-connection! connection)]
+          (if (:success result)
+            {:status 200
+             :headers {"Content-Type" "application/json"}
+             :body {:success true :id (or (:id result) conn-id)}}
+            {:status 400
+             :headers {"Content-Type" "application/json"}
+             :body {:success false :error (:error result)}}))))
     (catch Exception e
       {:status 500
        :headers {"Content-Type" "application/json"}
@@ -195,7 +263,7 @@
   [{:keys [body] :as request}]
   (try
     (let [{:keys [id]} (:body request)
-          result (db/remove-connection! id)]
+          result (app-storage/delete-connection! id)]
       {:status 200
        :headers {"Content-Type" "application/json"}
        :body result})
@@ -210,7 +278,15 @@
   [{:keys [body] :as request}]
   (try
     (let [{:keys [id config]} (:body request)
-          result (db/update-connection! id config)]
+          config-data (if (:config (:body request))
+                        (:config (:body request))
+                        config)
+          {:keys [name type] :as connection-data} config-data
+          updated-connection {:id id
+                              :name name
+                              :type type
+                              :config connection-data}
+          result (app-storage/save-connection! updated-connection)]
       (if (:success result)
         {:status 200
          :headers {"Content-Type" "application/json"}
