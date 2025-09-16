@@ -83,24 +83,24 @@ export function ResultsPanel({ result, isExecuting, className }: ResultsPanelPro
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="formatted" className="flex-1 mt-2 mx-4 mb-4">
+          <TabsContent value="formatted" className="flex-1 mt-2 mx-4 mb-4 overflow-hidden">
             <div className={cn(
-              "h-full p-4 rounded-md border overflow-auto text-sm font-mono",
-              hasError 
+              "h-full rounded-md border overflow-y-auto text-sm font-mono",
+              hasError
                 ? "bg-red-50 border-red-200 text-red-800 dark:bg-red-950/20 dark:border-red-800 dark:text-red-300"
                 : isEmpty
                 ? "bg-muted/30 text-muted-foreground"
                 : "bg-background"
             )}>
-              <pre className="whitespace-pre-wrap leading-relaxed">
+              <pre className="p-4 whitespace-pre-wrap leading-relaxed min-h-full">
                 {result || 'Press F5 or click Execute to run your Clojure script...'}
               </pre>
             </div>
           </TabsContent>
-          
-          <TabsContent value="raw" className="flex-1 mt-2 mx-4 mb-4">
-            <div className="h-full p-4 rounded-md border bg-background overflow-auto text-sm font-mono">
-              <pre className="whitespace-pre-wrap leading-relaxed text-muted-foreground">
+
+          <TabsContent value="raw" className="flex-1 mt-2 mx-4 mb-4 overflow-hidden">
+            <div className="h-full rounded-md border bg-background overflow-y-auto text-sm font-mono">
+              <pre className="p-4 whitespace-pre-wrap leading-relaxed text-muted-foreground min-h-full">
                 {result || 'No output'}
               </pre>
             </div>

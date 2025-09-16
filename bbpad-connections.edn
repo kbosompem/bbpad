@@ -1,1 +1,0 @@
-{"dev-sqlite" {:name "My Dev SQLite", :type :sqlite, :database "dev.db", :id "dev-sqlite", :db-config "dev.db"}}

@@ -459,7 +459,7 @@ export function applyTheme(theme: ThemeKey, mode: 'light' | 'dark') {
 
 export function getStoredTheme(): { theme: ThemeKey, mode: 'light' | 'dark' } {
   const theme = (localStorage.getItem('bbpad-theme') as ThemeKey) || 'default'
-  const mode = (localStorage.getItem('bbpad-theme-mode') as 'light' | 'dark') || 'dark'
+  const mode = (localStorage.getItem('bbpad-theme-mode') as 'light' | 'dark') || 'light'
   return { theme, mode }
 }
 

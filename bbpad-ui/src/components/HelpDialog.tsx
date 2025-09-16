@@ -68,8 +68,8 @@ export function HelpDialog({ trigger }: HelpDialogProps) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <HelpCircle className="h-5 w-5" />
             BBPad Help
@@ -79,7 +79,8 @@ export function HelpDialog({ trigger }: HelpDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="flex-1 mt-4 max-h-[calc(85vh-8rem)] overflow-y-auto">
+          <div className="pr-4">
           <div className="space-y-6">
             {/* Quick Start */}
             <section>
@@ -165,6 +166,7 @@ export function HelpDialog({ trigger }: HelpDialogProps) {
                 </div>
               </div>
             </section>
+          </div>
           </div>
         </ScrollArea>
       </DialogContent>

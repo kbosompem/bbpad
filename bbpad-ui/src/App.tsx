@@ -12,6 +12,7 @@ import { useCommandPalette } from '@/components/CommandPalette'
 import { BabashkaLogo } from '@/components/BabashkaLogo'
 import { SaveScriptDialog } from '@/components/SaveScriptDialog'
 import { OpenScriptDialog } from '@/components/OpenScriptDialog'
+import { ShareScriptDialog } from '@/components/ShareScriptDialog'
 import { HelpDialog } from '@/components/HelpDialog'
 import {
   Play,
@@ -49,6 +50,7 @@ function AppContent() {
   const scriptTabs = useScriptTabs()
   const [result, setResult] = useState<string>('')
   const [isExecuting, setIsExecuting] = useState(false)
+  const [showSaveDialog, setShowSaveDialog] = useState(false)
   const { theme, setTheme } = useTheme()
 
   const executeCode = async () => {
@@ -132,6 +134,20 @@ function AppContent() {
     }
   }
 
+  const handleSaveShortcut = () => {
+    const currentTab = scriptTabs.getCurrentTab()
+
+    // If the script has an ID (starts with 'script-') and has a name, auto-save
+    if (currentTab.id.startsWith('script-') && currentTab.title && currentTab.title !== 'New Tab' && currentTab.title.trim() !== '') {
+      saveScript(currentTab.title).catch(error => {
+        console.error('Auto-save failed:', error)
+      })
+    } else {
+      // Otherwise, show the save dialog
+      setShowSaveDialog(true)
+    }
+  }
+
   const openScript = async (scriptId: string) => {
     try {
       const scriptResponse = await fetch(`/api/scripts/get/${scriptId}`)
@@ -144,7 +160,8 @@ function AppContent() {
           title: script.name,
           content: script.content,
           modified: false,
-          language: script.language || 'clojure'
+          language: script.language || 'clojure',
+          originalContent: script.content
         })
       } else {
         throw new Error('Failed to load script')
@@ -198,11 +215,16 @@ function AppContent() {
         event.preventDefault()
         executeCode()
       }
+
+      if (event.key === 's' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault()
+        handleSaveShortcut()
+      }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [executeCode, isExecuting])
+  }, [executeCode, isExecuting, handleSaveShortcut])
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -245,10 +267,12 @@ function AppContent() {
         <SaveScriptDialog
           currentScript={{
             id: scriptTabs.getCurrentTab().id,
-            name: scriptTabs.getCurrentTab().name || '',
+            name: scriptTabs.getCurrentTab().title || '',
             content: scriptTabs.getCurrentTab().content
           }}
           onSave={saveScript}
+          open={showSaveDialog}
+          onOpenChange={setShowSaveDialog}
         />
 
         <ToolbarSeparator />
@@ -262,10 +286,13 @@ function AppContent() {
           }
         />
 
-        <ToolbarButton>
-          <Share className="h-4 w-4 mr-1" />
-          Share
-        </ToolbarButton>
+        <ShareScriptDialog
+          currentScript={{
+            id: scriptTabs.getCurrentTab().id,
+            name: scriptTabs.getCurrentTab().title || '',
+            content: scriptTabs.getCurrentTab().content
+          }}
+        />
 
         <div className="flex-1" />
 
@@ -347,8 +374,6 @@ function AppContent() {
       <div className="border-t px-4 py-1 text-xs text-muted-foreground bg-muted/30 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <span>Ready</span>
-          <span>•</span>
-          <span>localhost:8080</span>
         </div>
         <div className="flex items-center gap-2">
           <span>BBPad v0.1.0</span>
@@ -365,7 +390,7 @@ function App() {
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme="system"
+      defaultTheme="light"
       enableSystem
       disableTransitionOnChange
     >

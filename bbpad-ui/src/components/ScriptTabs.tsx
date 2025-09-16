@@ -9,6 +9,7 @@ export interface ScriptTab {
   content: string
   modified: boolean
   language?: string
+  originalContent?: string
 }
 
 interface ScriptTabsProps {
@@ -167,12 +168,14 @@ export function useScriptTabs(initialTab?: Partial<ScriptTab>) {
 
   const addTab = useCallback((tabData?: Partial<ScriptTab>) => {
     const newId = tabData?.id || `tab-${Date.now()}`
+    const content = tabData?.content || '; New script\n'
     const newTab: ScriptTab = {
       id: newId,
       title: tabData?.title || `Script ${tabs.length + 1}`,
-      content: tabData?.content || '; New script\n',
+      content: content,
       modified: tabData?.modified ?? false,
-      language: tabData?.language || 'clojure'
+      language: tabData?.language || 'clojure',
+      originalContent: tabData?.originalContent || content
     }
     setTabs(prev => [...prev, newTab])
     setActiveTab(newId)
@@ -191,11 +194,15 @@ export function useScriptTabs(initialTab?: Partial<ScriptTab>) {
   }, [tabs.length, activeTab])
 
   const updateTabContent = useCallback((tabId: string, content: string) => {
-    setTabs(prev => prev.map(tab => 
-      tab.id === tabId 
-        ? { ...tab, content, modified: content !== defaultTab.content }
-        : tab
-    ))
+    setTabs(prev => prev.map(tab => {
+      if (tab.id !== tabId) return tab
+
+      return {
+        ...tab,
+        content,
+        modified: content !== (tab.originalContent || defaultTab.content)
+      }
+    }))
   }, [])
 
   const updateTabTitle = useCallback((tabId: string, title: string) => {
@@ -205,9 +212,18 @@ export function useScriptTabs(initialTab?: Partial<ScriptTab>) {
   }, [])
 
   const updateTab = useCallback((tabId: string, updates: Partial<ScriptTab>) => {
-    setTabs(prev => prev.map(tab => 
-      tab.id === tabId ? { ...tab, ...updates } : tab
-    ))
+    setTabs(prev => prev.map(tab => {
+      if (tab.id !== tabId) return tab
+
+      const updatedTab = { ...tab, ...updates }
+
+      // If saving, update originalContent to mark as unmodified
+      if (updates.modified === false && updates.title) {
+        updatedTab.originalContent = updatedTab.content
+      }
+
+      return updatedTab
+    }))
     // If the ID changed, update the active tab too
     if (updates.id && updates.id !== tabId && activeTab === tabId) {
       setActiveTab(updates.id)

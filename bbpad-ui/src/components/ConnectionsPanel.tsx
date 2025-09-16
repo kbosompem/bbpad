@@ -62,6 +62,8 @@ export function ConnectionsPanel({ className = "" }: ConnectionsPanelProps) {
         body: JSON.stringify({ 'connection-id': connectionId })
       })
       const data = await response.json()
+      console.log('Schema response for', connectionId, ':', data)
+
       if (data.success) {
         if (data.stats) {
           // Datalevin stats
@@ -73,16 +75,26 @@ export function ConnectionsPanel({ className = "" }: ConnectionsPanelProps) {
               { table_name: `Values: ${data.stats.values}`, table_type: 'stat' }
             ]
           }))
-        } else {
+        } else if (data.tables) {
           // Regular tables
           setConnectionTables(prev => ({
             ...prev,
-            [connectionId]: data.tables || []
+            [connectionId]: data.tables
           }))
         }
+      } else {
+        console.error('Schema error:', data.error)
+        setConnectionTables(prev => ({
+          ...prev,
+          [connectionId]: []
+        }))
       }
     } catch (error) {
       console.error('Failed to load tables:', error)
+      setConnectionTables(prev => ({
+        ...prev,
+        [connectionId]: []
+      }))
     }
   }
 

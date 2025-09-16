@@ -33,6 +33,49 @@
       FOREIGN KEY (collection_id) REFERENCES collections(id)
     )
   ")
+
+  ;; Add missing columns if they don't exist (migrations)
+  (try
+    (sqlite/execute! db-path "ALTER TABLE scripts ADD COLUMN collection_id TEXT DEFAULT 'default'")
+    (println "Added collection_id column to scripts table")
+    (catch Exception e
+      ;; Column already exists, ignore the error
+      nil))
+
+  (try
+    (sqlite/execute! db-path "ALTER TABLE scripts ADD COLUMN description TEXT")
+    (println "Added description column to scripts table")
+    (catch Exception e
+      ;; Column already exists, ignore the error
+      nil))
+
+  (try
+    (sqlite/execute! db-path "ALTER TABLE scripts ADD COLUMN is_favorite INTEGER DEFAULT 0")
+    (println "Added is_favorite column to scripts table")
+    (catch Exception e
+      ;; Column already exists, ignore the error
+      nil))
+
+  (try
+    (sqlite/execute! db-path "ALTER TABLE scripts ADD COLUMN last_run_at TEXT")
+    (println "Added last_run_at column to scripts table")
+    (catch Exception e
+      ;; Column already exists, ignore the error
+      nil))
+
+  (try
+    (sqlite/execute! db-path "ALTER TABLE scripts ADD COLUMN run_count INTEGER DEFAULT 0")
+    (println "Added run_count column to scripts table")
+    (catch Exception e
+      ;; Column already exists, ignore the error
+      nil))
+
+  (try
+    (sqlite/execute! db-path "ALTER TABLE scripts ADD COLUMN version INTEGER DEFAULT 1")
+    (println "Added version column to scripts table")
+    (catch Exception e
+      ;; Column already exists, ignore the error
+      nil))
   
   ;; Collections table for organizing scripts
   (sqlite/execute! db-path "
@@ -159,12 +202,14 @@
         (let [existing (sqlite/query db-path ["SELECT version FROM scripts WHERE id = ?" id])
               current-version (or (:version (first existing)) 1)
               new-version (inc current-version)]
-          ;; Save current version to script_versions
-          (let [current-script (sqlite/query db-path ["SELECT name, content FROM scripts WHERE id = ?" id])]
-            (when-let [current (first current-script)]
-              (sqlite/execute! db-path 
-                              ["INSERT INTO script_versions (script_id, version, name, content, created_at) VALUES (?, ?, ?, ?, ?)"
-                               id current-version (:name current) (:content current) now])))
+          ;; Save current version to script_versions if it doesn't exist
+          (let [current-script (sqlite/query db-path ["SELECT name, content FROM scripts WHERE id = ?" id])
+                existing-version (sqlite/query db-path ["SELECT id FROM script_versions WHERE script_id = ? AND version = ?" id current-version])]
+            (when (and (first current-script) (empty? existing-version))
+              (let [current (first current-script)]
+                (sqlite/execute! db-path
+                                ["INSERT INTO script_versions (script_id, version, name, content, created_at) VALUES (?, ?, ?, ?, ?)"
+                                 id current-version (:name current) (:content current) now]))))
           ;; Update main script record
           (sqlite/execute! db-path 
                           ["UPDATE scripts SET name = ?, content = ?, language = ?, tags = ?, collection_id = ?, description = ?, is_favorite = ?, updated_at = ?, version = ? WHERE id = ?"
@@ -174,10 +219,12 @@
           (sqlite/execute! db-path 
                           ["INSERT INTO scripts (id, name, content, language, tags, collection_id, description, is_favorite, created_at, updated_at, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                            script-id name content (or language "clojure") (or tags "") coll-id description (if is-favorite 1 0) now now 1])
-          ;; Save initial version
-          (sqlite/execute! db-path 
-                          ["INSERT INTO script_versions (script_id, version, name, content, created_at) VALUES (?, ?, ?, ?, ?)"
-                           script-id 1 name content now])))
+          ;; Save initial version if it doesn't exist
+          (let [existing-version (sqlite/query db-path ["SELECT id FROM script_versions WHERE script_id = ? AND version = ?" script-id 1])]
+            (when (empty? existing-version)
+              (sqlite/execute! db-path
+                              ["INSERT INTO script_versions (script_id, version, name, content, created_at) VALUES (?, ?, ?, ?, ?)"
+                               script-id 1 name content now])))))
       {:success true :id (or id script-id)}
       (catch Exception e
         {:success false :error (.getMessage e)}))))
@@ -263,9 +310,8 @@
   [id]
   (init-db!)
   (try
-    (let [results (sqlite/query db-path 
-                               "SELECT * FROM connections WHERE id = ?" 
-                               [id])]
+    (let [results (sqlite/query db-path
+                               ["SELECT * FROM connections WHERE id = ?" id])]
       (when-let [conn (first results)]
         (update conn :config #(json/read-str % :key-fn keyword))))
     (catch Exception e

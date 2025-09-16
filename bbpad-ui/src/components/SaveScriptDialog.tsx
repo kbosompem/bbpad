@@ -21,10 +21,14 @@ interface SaveScriptDialogProps {
     content: string
   }
   onSave: (name: string, tags?: string) => Promise<void>
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function SaveScriptDialog({ currentScript, onSave }: SaveScriptDialogProps) {
-  const [open, setOpen] = useState(false)
+export function SaveScriptDialog({ currentScript, onSave, open: externalOpen, onOpenChange }: SaveScriptDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const open = externalOpen !== undefined ? externalOpen : internalOpen
+  const setOpen = onOpenChange || setInternalOpen
   const [scriptName, setScriptName] = useState(currentScript.name || '')
   const [tags, setTags] = useState('')
   const [isSaving, setIsSaving] = useState(false)

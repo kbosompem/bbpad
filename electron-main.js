@@ -1,12 +1,32 @@
 const { app, BrowserWindow, shell } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
+const net = require('net');
 
 let mainWindow;
 let bbpadProcess;
+let serverPort;
+
+// Function to find an available port
+function findAvailablePort(startPort = 8080) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.listen(startPort, () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
+    });
+    server.on('error', () => {
+      resolve(findAvailablePort(startPort + 1));
+    });
+  });
+}
 
 // Keep a global reference of the window object
-function createWindow() {
+async function createWindow() {
+  // Find an available port
+  serverPort = await findAvailablePort();
+  console.log(`Using port ${serverPort} for BBPad server`);
+
   // Create the browser window
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -28,8 +48,8 @@ function createWindow() {
 
   // Load the app after a short delay to ensure server is ready
   setTimeout(() => {
-    mainWindow.loadURL('http://localhost:8080');
-  }, 2000);
+    mainWindow.loadURL(`http://localhost:${serverPort}`);
+  }, 3000);
 
   // Handle external links
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -54,10 +74,10 @@ function createWindow() {
 }
 
 function startBBPadServer() {
-  console.log('Starting BBPad server...');
+  console.log(`Starting BBPad server on port ${serverPort}...`);
 
-  // Start the BBPad server with --no-webview flag
-  bbpadProcess = spawn('bb', ['src/bbpad/main.clj', '--no-webview'], {
+  // Start the BBPad server with --no-webview flag and dynamic port
+  bbpadProcess = spawn('bb', ['src/bbpad/main.clj', '--no-webview', '--port', serverPort.toString()], {
     cwd: __dirname,
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -107,7 +127,7 @@ app.on('web-contents-created', (event, contents) => {
   contents.on('will-navigate', (event, navigationUrl) => {
     const parsedUrl = new URL(navigationUrl);
 
-    if (parsedUrl.origin !== 'http://localhost:8080') {
+    if (parsedUrl.origin !== `http://localhost:${serverPort}`) {
       event.preventDefault();
     }
   });

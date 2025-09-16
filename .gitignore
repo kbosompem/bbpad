@@ -35,3 +35,9 @@ build/BBPad.app
 
 *.dmg
 .build/
+
+# Downloaded GitHub Actions artifacts
+bbpad-linux/
+bbpad-windows/
+bbpad-macos/
+test-results-*/
