@@ -1,6 +1,10 @@
 export const themes = {
   default: {
     name: "Default",
+    fonts: {
+      sans: "Inter, sans-serif",
+      mono: "JetBrains Mono, monospace",
+    },
     cssVars: {
       light: {
         background: "0 0% 100%",
@@ -50,6 +54,10 @@ export const themes = {
   },
   "amber-minimal": {
     name: "Amber Minimal",
+    fonts: {
+      sans: "Nunito, sans-serif",
+      mono: "Fira Code, monospace",
+    },
     cssVars: {
       light: {
         background: "60 100% 98%",
@@ -99,6 +107,10 @@ export const themes = {
   },
   ocean: {
     name: "Ocean",
+    fonts: {
+      sans: "Source Sans Pro, sans-serif",
+      mono: "JetBrains Mono, monospace",
+    },
     cssVars: {
       light: {
         background: "210 100% 98%",
@@ -148,6 +160,10 @@ export const themes = {
   },
   forest: {
     name: "Forest",
+    fonts: {
+      sans: "Lora, serif",
+      mono: "Space Mono, monospace",
+    },
     cssVars: {
       light: {
         background: "120 30% 98%",
@@ -197,6 +213,10 @@ export const themes = {
   },
   purple: {
     name: "Purple",
+    fonts: {
+      sans: "Inter, sans-serif",
+      mono: "JetBrains Mono, monospace",
+    },
     cssVars: {
       light: {
         background: "270 100% 98%",
@@ -246,6 +266,10 @@ export const themes = {
   },
   "retro-arcade": {
     name: "Retro Arcade",
+    fonts: {
+      sans: "Orbitron, sans-serif",
+      mono: "Space Mono, monospace",
+    },
     cssVars: {
       light: {
         background: "180 50% 98%",
@@ -295,6 +319,10 @@ export const themes = {
   },
   tangerine: {
     name: "Tangerine",
+    fonts: {
+      sans: "Nunito, sans-serif",
+      mono: "Fira Code, monospace",
+    },
     cssVars: {
       light: {
         background: "30 100% 98%",
@@ -344,6 +372,10 @@ export const themes = {
   },
   "violet-bloom": {
     name: "Violet Bloom",
+    fonts: {
+      sans: "Playfair Display, serif",
+      mono: "JetBrains Mono, monospace",
+    },
     cssVars: {
       light: {
         background: "280 40% 98%",
@@ -393,6 +425,10 @@ export const themes = {
   },
   "starry-night": {
     name: "Starry Night",
+    fonts: {
+      sans: "Crimson Text, serif",
+      mono: "Fira Code, monospace",
+    },
     cssVars: {
       light: {
         background: "240 10% 95%",
@@ -446,12 +482,21 @@ export type ThemeKey = keyof typeof themes
 
 export function applyTheme(theme: ThemeKey, mode: 'light' | 'dark') {
   const root = document.documentElement
-  const themeVars = themes[theme].cssVars[mode]
-  
+  const themeConfig = themes[theme]
+  const themeVars = themeConfig.cssVars[mode]
+
+  // Apply color variables
   Object.entries(themeVars).forEach(([key, value]) => {
     root.style.setProperty(`--${key}`, value)
   })
-  
+
+  // Apply font variables
+  if (themeConfig.fonts) {
+    Object.entries(themeConfig.fonts).forEach(([key, value]) => {
+      root.style.setProperty(`--font-${key}`, value)
+    })
+  }
+
   // Store in localStorage
   localStorage.setItem('bbpad-theme', theme)
   localStorage.setItem('bbpad-theme-mode', mode)

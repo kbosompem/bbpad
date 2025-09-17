@@ -49,6 +49,7 @@ interface ApiResponse {
 function AppContent() {
   const scriptTabs = useScriptTabs()
   const [result, setResult] = useState<string>('')
+  const [structuredData, setStructuredData] = useState<any>(null)
   const [isExecuting, setIsExecuting] = useState(false)
   const [showSaveDialog, setShowSaveDialog] = useState(false)
   const { theme, setTheme } = useTheme()
@@ -78,6 +79,19 @@ function AppContent() {
 
         if (data.result) {
           resultText += `Result (${data.result.type}):\n${data.result.content}`
+
+          // Parse structured data for cljdump tab
+          if (data.result.data || data.result['data-type'] === 'json') {
+            try {
+              const parsed = data.result.data || JSON.parse(data.result.content)
+              setStructuredData(parsed)
+            } catch (e) {
+              // If parsing fails, try to use content directly
+              setStructuredData(data.result.content)
+            }
+          } else {
+            setStructuredData(null)
+          }
         }
 
         if (data['execution-time']) {
@@ -87,6 +101,7 @@ function AppContent() {
         setResult(resultText)
       } else {
         setResult(`❌ Error: ${data.error || 'Unknown error occurred'}`)
+        setStructuredData(null)
       }
     } catch (error) {
       setResult(`❌ Failed to execute: ${error}`)
@@ -354,6 +369,7 @@ function AppContent() {
               <ResizablePanel defaultSize={40} minSize={20}>
                 <ResultsPanel
                   result={result}
+                  structuredData={structuredData}
                   isExecuting={isExecuting}
                   className="h-full"
                 />

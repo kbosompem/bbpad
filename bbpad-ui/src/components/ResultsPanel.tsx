@@ -1,15 +1,17 @@
 import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { Copy, Download, Table, FileJson } from 'lucide-react'
+import { Copy, Download, Table, FileJson, Database } from 'lucide-react'
+import { CljDump } from '@/components/CljDump'
 
 interface ResultsPanelProps {
   result: string
   isExecuting: boolean
   className?: string
+  structuredData?: any
 }
 
-export function ResultsPanel({ result, isExecuting, className }: ResultsPanelProps) {
+export function ResultsPanel({ result, isExecuting, className, structuredData }: ResultsPanelProps) {
   const hasError = result.startsWith('❌')
   const isEmpty = !result || result === 'Press F5 or click Execute to run your Clojure script...'
 
@@ -81,6 +83,10 @@ export function ResultsPanel({ result, isExecuting, className }: ResultsPanelPro
               <FileJson className="h-3 w-3 mr-1" />
               Raw
             </TabsTrigger>
+            <TabsTrigger value="cljdump" className="text-xs">
+              <Database className="h-3 w-3 mr-1" />
+              cljdump
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="formatted" className="flex-1 mt-2 mx-4 mb-4 overflow-hidden">
@@ -103,6 +109,18 @@ export function ResultsPanel({ result, isExecuting, className }: ResultsPanelPro
               <pre className="p-4 whitespace-pre-wrap leading-relaxed text-muted-foreground min-h-full">
                 {result || 'No output'}
               </pre>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="cljdump" className="flex-1 mt-2 mx-4 mb-4 overflow-hidden">
+            <div className="h-full rounded-md border bg-background overflow-hidden">
+              {structuredData ? (
+                <CljDump data={structuredData} className="h-full" />
+              ) : (
+                <div className="p-4 text-sm text-muted-foreground">
+                  No structured data available. Execute a script that returns data structures to see them here.
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
