@@ -1,4 +1,4 @@
-{:paths ["src"]
+{:paths ["src" "bbpad-ui/dist"]
  :version "0.1.0"
  
  ; :pods {org.babashka/postgresql {:version "0.1.0"}

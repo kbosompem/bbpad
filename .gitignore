@@ -9,6 +9,7 @@ node_modules/
 # Build artifacts
 .shadow-cljs/
 resources/public/js/cljs-runtime/
+*.jar
 
 # Database files
 *.db

@@ -39,74 +39,84 @@
     :else "application/octet-stream"))
 
 (defn serve-static-file
-  "Serve a static file from the public directory"
+  "Serve a static file from the public directory or jar resources"
   [path]
-  (let [public-dir (get-public-dir)
-        ;; Handle absolute vs relative paths
-        file-path (if (.startsWith public-dir "/")
-                    (str public-dir "/" path)  ; Absolute path
-                    (str (System/getProperty "user.dir") "/" public-dir "/" path))  ; Relative path
-        file (io/file file-path)]
-    (if (.exists file)
-      {:status 200
-       :headers {"Content-Type" (get-content-type path)
-                 "Cache-Control" "public, max-age=31536000"}
-       :body (slurp file)}
-      nil)))
+  ;; Try loading from classpath/jar first, then fall back to filesystem
+  (if-let [resource (io/resource path)]
+    {:status 200
+     :headers {"Content-Type" (get-content-type path)
+               "Cache-Control" "public, max-age=31536000"}
+     :body (slurp resource)}
+    ;; Fallback to filesystem for development
+    (let [public-dir (get-public-dir)
+          file-path (if (.startsWith public-dir "/")
+                      (str public-dir "/" path)
+                      (str (System/getProperty "user.dir") "/" public-dir "/" path))
+          file (io/file file-path)]
+      (when (.exists file)
+        {:status 200
+         :headers {"Content-Type" (get-content-type path)
+                   "Cache-Control" "public, max-age=31536000"}
+         :body (slurp file)}))))
 
 (defn serve-index
   "Serve the React app index.html or fallback to development placeholder"
   [request]
-  (let [public-dir (get-public-dir)
-        index-file (io/file (str public-dir "/index.html"))]
-    (if (.exists index-file)
-      ;; Serve React build index.html
-      {:status 200
-       :headers {"Content-Type" "text/html"}
-       :body (slurp index-file)}
-      ;; Fallback to development placeholder
-      {:status 200
-       :headers {"Content-Type" "text/html"}
-       :body (html5
-              [:head
-               [:meta {:charset "utf-8"}]
-               [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
-               [:title "BBPad"]
-               [:style "
-                body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-                #app { height: 100vh; }
-                .loading { display: flex; align-items: center; justify-content: center; height: 100vh; }
-               "]]
-              [:body
-               [:div#app
-                [:div.loading "🚀 Loading BBPad..."]]
-               [:script "
-                // Simple placeholder for ClojureScript app
-                document.addEventListener('DOMContentLoaded', function() {
-                  const app = document.getElementById('app');
-                  app.innerHTML = `
-                    <div style='padding: 20px; max-width: 1200px; margin: 0 auto;'>
-                      <h1>BBPad - Development Mode</h1>
-                      <p>Babashka-powered Desktop App</p>
-                      <div style='background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;'>
-                        <h3>✅ Server Status</h3>
-                        <p>HTTP Server: Running</p>
-                        <p>Pod Support: Available</p>
-                        <p>Architecture: Pure Babashka</p>
+  ;; Try loading from classpath/jar first
+  (if-let [resource (io/resource "index.html")]
+    {:status 200
+     :headers {"Content-Type" "text/html"}
+     :body (slurp resource)}
+    ;; Try filesystem for development
+    (let [public-dir (get-public-dir)
+          index-file (io/file (str public-dir "/index.html"))]
+      (if (.exists index-file)
+        {:status 200
+         :headers {"Content-Type" "text/html"}
+         :body (slurp index-file)}
+        ;; Fallback to development placeholder
+        {:status 200
+         :headers {"Content-Type" "text/html"}
+         :body (html5
+                [:head
+                 [:meta {:charset "utf-8"}]
+                 [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
+                 [:title "BBPad"]
+                 [:style "
+                  body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+                  #app { height: 100vh; }
+                  .loading { display: flex; align-items; center; justify-content: center; height: 100vh; }
+                 "]]
+                [:body
+                 [:div#app
+                  [:div.loading "🚀 Loading BBPad..."]]
+                 [:script "
+                  // Simple placeholder for ClojureScript app
+                  document.addEventListener('DOMContentLoaded', function() {
+                    const app = document.getElementById('app');
+                    app.innerHTML = `
+                      <div style='padding: 20px; max-width: 1200px; margin: 0 auto;'>
+                        <h1>BBPad - Development Mode</h1>
+                        <p>Babashka-powered Desktop App</p>
+                        <div style='background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;'>
+                          <h3>✅ Server Status</h3>
+                          <p>HTTP Server: Running</p>
+                          <p>Pod Support: Available</p>
+                          <p>Architecture: Pure Babashka</p>
+                        </div>
+                        <div style='background: #e8f5e8; padding: 20px; border-radius: 8px;'>
+                          <h3>🎯 Next Steps</h3>
+                          <ul>
+                            <li>ClojureScript frontend implementation</li>
+                            <li>Script execution engine</li>
+                            <li>Database connectivity</li>
+                            <li>WebView integration</li>
+                          </ul>
+                        </div>
                       </div>
-                      <div style='background: #e8f5e8; padding: 20px; border-radius: 8px;'>
-                        <h3>🎯 Next Steps</h3>
-                        <ul>
-                          <li>ClojureScript frontend implementation</li>
-                          <li>Script execution engine</li>
-                          <li>Database connectivity</li>
-                          <li>WebView integration</li>
-                        </ul>
-                      </div>
-                    </div>
-                  `;
-                });
-               "]])})))
+                    `;
+                  });
+                 "]])}))))
 
 (defn execute-script
   "Execute a Babashka script"
