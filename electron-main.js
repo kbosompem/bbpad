@@ -39,7 +39,8 @@ async function createWindow() {
     },
     title: 'BBPad',
     autoHideMenuBar: true,
-    titleBarStyle: 'default',
+    titleBarStyle: 'hiddenInset', // macOS: hidden title bar with traffic lights
+    vibrancy: 'under-window', // macOS: blur effect behind window
     icon: path.join(__dirname, 'assets', 'icon.png') // Add icon later
   });
 

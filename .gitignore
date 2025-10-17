@@ -10,11 +10,18 @@ node_modules/
 .shadow-cljs/
 resources/public/js/cljs-runtime/
 *.jar
+bbpad
+test-results/
 
 # Database files
 *.db
 dev.db
 test.db
+
+# Local development
+.beads/
+.claude/
+claude_code_zai_env.sh
 
 # Logs
 *.log
